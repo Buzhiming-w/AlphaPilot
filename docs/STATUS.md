@@ -8,13 +8,13 @@ Phase 7: Workflow Router Lean MVP
 
 ## Current Task
 
-Design and implement the Workflow Router Lean MVP: a logged-in Dashboard Copilot that turns natural-language requests into confirmed Watchlist, Multi-Stock Compare, or Single Stock Analysis workflows.
+Implement the Workflow Router Lean MVP: a logged-in Dashboard Copilot that turns natural-language requests into confirmed Watchlist, Multi-Stock Compare, or Single Stock Analysis workflows.
 
 ## Next Steps
 
-1. Review `docs/WORKFLOW_ROUTER_MVP.md` and its Chinese mirror.
-2. Create an implementation plan for ticker resolution, workflow routing, Watchlist, Compare, and Dashboard Copilot UI.
-3. Implement locally with tests first.
+1. Implement ticker resolution, workflow routing, Watchlist, Compare, and Dashboard Copilot UI from `docs/PHASE7_IMPLEMENTATION_PLAN.md`.
+2. Keep English and Chinese docs updated as implementation lands.
+3. Verify locally with tests first.
 4. Deploy to the Alibaba Cloud demo only after local verification passes.
 5. Continue post-Phase-6 hardening after the Workflow Router MVP lands.
 
@@ -22,7 +22,7 @@ Design and implement the Workflow Router Lean MVP: a logged-in Dashboard Copilot
 
 - No domain name yet, so the first deployment is HTTP-only at the server IP.
 - Browser screenshot verification is still pending.
-- Workflow Router implementation should not begin until the written design is reviewed.
+- Workflow Router cloud deployment should wait until local tests pass.
 
 ## Important Context
 
@@ -85,6 +85,7 @@ Design and implement the Workflow Router Lean MVP: a logged-in Dashboard Copilot
 - Latest full local test run in the `AlphaPilot` conda environment: `336 passed, 75 subtests passed`.
 - Planned Phase 7 Workflow Router Lean MVP: right-side Dashboard Copilot, natural-language intent routing, local-first ticker directory with AI fallback, Watchlist basics, and lightweight Multi-Stock Compare.
 - Added `docs/WORKFLOW_ROUTER_MVP.md` and Chinese mirror under `docs/docs_CN/`.
+- Added Phase 7 implementation plans in English and Chinese docs; implementation is starting with TDD.
 
 ## Completed
 

@@ -262,7 +262,7 @@ Dependencies:
 
 Objective: turn the Dashboard into a natural-language research workspace that routes logged-in users into Watchlist, Multi-Stock Compare, or Single Stock Analysis workflows.
 
-Status: Design approved; written design pending user review
+Status: Design approved; implementation plan written; implementation in progress
 
 Design:
 - Add a right-side Dashboard Copilot Panel for logged-in users only.
@@ -288,7 +288,7 @@ Tasks:
 - [x] Choose hybrid ticker resolution.
 - [x] Choose date-range storage with `end_date` analysis anchor.
 - [x] Write `docs/WORKFLOW_ROUTER_MVP.md` and Chinese mirror.
-- [ ] Write detailed implementation plan.
+- [x] Write detailed implementation plan.
 - [ ] Add ticker directory and resolver tests.
 - [ ] Add workflow router tests and implementation.
 - [ ] Add Watchlist persistence, API, tests, and frontend view.

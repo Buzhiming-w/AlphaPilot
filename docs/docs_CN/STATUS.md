@@ -8,13 +8,13 @@ Phase 7：Workflow Router Lean MVP
 
 ## 当前任务
 
-设计并实现 Workflow Router Lean MVP：在登录后的 Dashboard 中加入 Copilot，将自然语言请求转换为已确认的 Watchlist、Multi-Stock Compare 或 Single Stock Analysis workflow。
+实现 Workflow Router Lean MVP：在登录后的 Dashboard 中加入 Copilot，将自然语言请求转换为已确认的 Watchlist、Multi-Stock Compare 或 Single Stock Analysis workflow。
 
 ## 下一步
 
-1. 审阅 `docs/WORKFLOW_ROUTER_MVP.md` 及中文镜像。
-2. 为 ticker resolution、workflow routing、Watchlist、Compare 和 Dashboard Copilot UI 创建实现计划。
-3. 先在本地按测试优先方式实现。
+1. 根据 `docs/PHASE7_IMPLEMENTATION_PLAN.md` 实现 ticker resolution、workflow routing、Watchlist、Compare 和 Dashboard Copilot UI。
+2. 实现过程中持续同步中英文文档。
+3. 先在本地按测试优先方式验证。
 4. 本地验证通过后，再部署到阿里云 demo。
 5. Workflow Router MVP 落地后，继续 Phase 6 之后的 hardening。
 
@@ -22,7 +22,7 @@ Phase 7：Workflow Router Lean MVP
 
 - 暂无域名，所以第一版部署只能通过服务器 IP 使用 HTTP。
 - 浏览器截图验证仍待补充。
-- Written design 审阅完成前，不应开始 Workflow Router 实现。
+- Workflow Router 云部署应等本地测试通过后再进行。
 
 ## 重要上下文
 
@@ -86,6 +86,7 @@ Phase 7：Workflow Router Lean MVP
 - 最近一次在 `AlphaPilot` conda 环境运行全量测试：`336 passed, 75 subtests passed`。
 - 已规划 Phase 7 Workflow Router Lean MVP：右侧 Dashboard Copilot、自然语言意图路由、本地优先 ticker directory + AI fallback、Watchlist 基础能力和轻量 Multi-Stock Compare。
 - 新增 `docs/WORKFLOW_ROUTER_MVP.md` 及 `docs/docs_CN/` 下的中文镜像。
+- 新增 Phase 7 中英文实现计划；实现将从 TDD 开始。
 
 ## 已完成
 

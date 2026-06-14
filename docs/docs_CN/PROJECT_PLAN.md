@@ -261,7 +261,7 @@ AlphaPilot 只用于投资研究辅助、面试展示和作品集展示。它不
 
 目标：将 Dashboard 升级为自然语言研究工作台，让登录用户通过 Copilot 进入 Watchlist、Multi-Stock Compare 或 Single Stock Analysis workflow。
 
-状态：设计已确认；书面设计待用户审阅
+状态：设计已确认；实现计划已编写；正在实现中
 
 设计：
 - 在 Dashboard 右侧加入仅登录用户可用的 Copilot Panel。
@@ -287,7 +287,7 @@ AlphaPilot 只用于投资研究辅助、面试展示和作品集展示。它不
 - [x] 选择混合 ticker resolution。
 - [x] 选择保存时间段，但以 `end_date` 作为分析基准。
 - [x] 编写 `docs/WORKFLOW_ROUTER_MVP.md` 和中文镜像。
-- [ ] 编写详细实现计划。
+- [x] 编写详细实现计划。
 - [ ] 添加 ticker directory 和 resolver 测试。
 - [ ] 添加 workflow router 测试和实现。
 - [ ] 添加 Watchlist 持久化、API、测试和前端视图。
