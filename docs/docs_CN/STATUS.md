@@ -87,6 +87,7 @@ Phase 7：Workflow Router Lean MVP
 - 已规划 Phase 7 Workflow Router Lean MVP：右侧 Dashboard Copilot、自然语言意图路由、本地优先 ticker directory + AI fallback、Watchlist 基础能力和轻量 Multi-Stock Compare。
 - 新增 `docs/WORKFLOW_ROUTER_MVP.md` 及 `docs/docs_CN/` 下的中文镜像。
 - 新增 Phase 7 中英文实现计划；实现将从 TDD 开始。
+- 新增确定性的本地 ticker directory 和 Workflow Router MVP 边界，并用测试覆盖 exact ticker、公司名、中文名、人物线索、时间段、watchlist、single-analysis 和 multi-compare routing。
 
 ## 已完成
 

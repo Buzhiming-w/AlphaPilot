@@ -289,8 +289,8 @@ Tasks:
 - [x] Choose date-range storage with `end_date` analysis anchor.
 - [x] Write `docs/WORKFLOW_ROUTER_MVP.md` and Chinese mirror.
 - [x] Write detailed implementation plan.
-- [ ] Add ticker directory and resolver tests.
-- [ ] Add workflow router tests and implementation.
+- [x] Add ticker directory and resolver tests.
+- [x] Add workflow router tests and implementation.
 - [ ] Add Watchlist persistence, API, tests, and frontend view.
 - [ ] Add Compare persistence, API, tests, and frontend view.
 - [ ] Add right-side Dashboard Copilot Panel.

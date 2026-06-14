@@ -288,8 +288,8 @@ AlphaPilot 只用于投资研究辅助、面试展示和作品集展示。它不
 - [x] 选择保存时间段，但以 `end_date` 作为分析基准。
 - [x] 编写 `docs/WORKFLOW_ROUTER_MVP.md` 和中文镜像。
 - [x] 编写详细实现计划。
-- [ ] 添加 ticker directory 和 resolver 测试。
-- [ ] 添加 workflow router 测试和实现。
+- [x] 添加 ticker directory 和 resolver 测试。
+- [x] 添加 workflow router 测试和实现。
 - [ ] 添加 Watchlist 持久化、API、测试和前端视图。
 - [ ] 添加 Compare 持久化、API、测试和前端视图。
 - [ ] 添加 Dashboard 右侧 Copilot Panel。

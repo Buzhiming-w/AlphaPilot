@@ -86,6 +86,7 @@ Implement the Workflow Router Lean MVP: a logged-in Dashboard Copilot that turns
 - Planned Phase 7 Workflow Router Lean MVP: right-side Dashboard Copilot, natural-language intent routing, local-first ticker directory with AI fallback, Watchlist basics, and lightweight Multi-Stock Compare.
 - Added `docs/WORKFLOW_ROUTER_MVP.md` and Chinese mirror under `docs/docs_CN/`.
 - Added Phase 7 implementation plans in English and Chinese docs; implementation is starting with TDD.
+- Added deterministic local ticker directory and Workflow Router MVP boundary with tests for exact ticker, company, Chinese-name, person-clue, date-range, watchlist, single-analysis, and multi-compare routing.
 
 ## Completed
 
