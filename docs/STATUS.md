@@ -8,14 +8,13 @@ Phase 7: Workflow Router Lean MVP
 
 ## Current Task
 
-Finalize and prepare deployment for the locally verified Workflow Router Lean MVP: a logged-in Dashboard Copilot that turns natural-language requests into confirmed Watchlist, Multi-Stock Compare, or Single Stock Analysis workflows.
+Continue post-deployment hardening for the Workflow Router Lean MVP now running on the Alibaba Cloud demo.
 
 ## Next Steps
 
-1. Commit and push the locally verified Phase 7 MVP.
-2. Deploy to the Alibaba Cloud demo only after repository verification is complete.
-3. Re-run public smoke checks after deployment.
-4. Continue post-Phase-6 hardening after the Workflow Router MVP lands.
+1. Add browser screenshot verification when an in-app browser or Playwright runtime is available.
+2. Add domain/HTTPS when a domain is purchased and DNS points to the server.
+3. Continue hardening Copilot UX, Watchlist details, and Compare report presentation.
 
 ## Current Blockers
 
@@ -90,6 +89,8 @@ Finalize and prepare deployment for the locally verified Workflow Router Lean MV
 - Local verification passed: `351 passed, 9 warnings, 75 subtests passed`.
 - Verified Alembic migration chain through `20260615_0002_add_workflow_router_tables.py` with SQLite.
 - Updated Caddy production proxy rules for Phase 7 API prefixes: `/copilot/*`, `/watchlist*`, and `/compare*`.
+- Deployed Phase 7 to the Alibaba Cloud demo at commit `00a86d8`.
+- Public smoke checks passed: `/` returned HTTP 200 and contains Copilot UI, `/health` returned HTTP 200, `/demo/reference` returned HTTP 200, and guest `/copilot/route`, `/watchlist`, and `/compare/test` returned HTTP 401.
 
 ## Completed
 
@@ -118,6 +119,7 @@ Finalize and prepare deployment for the locally verified Workflow Router Lean MV
 
 - [x] Phase 7 Workflow Router Lean MVP design review.
 - [x] Phase 7 Workflow Router local MVP implementation.
+- [x] Phase 7 Workflow Router Alibaba Cloud demo deployment.
 
 ## Pending
 

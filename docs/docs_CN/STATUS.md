@@ -8,14 +8,13 @@ Phase 7：Workflow Router Lean MVP
 
 ## 当前任务
 
-收尾并准备部署本地已验证的 Workflow Router Lean MVP：在登录后的 Dashboard 中加入 Copilot，将自然语言请求转换为已确认的 Watchlist、Multi-Stock Compare 或 Single Stock Analysis workflow。
+继续对已经运行在阿里云 demo 上的 Workflow Router Lean MVP 做部署后加固。
 
 ## 下一步
 
-1. 提交并推送本地已验证的 Phase 7 MVP。
-2. 仓库验证完成后，再部署到阿里云 demo。
-3. 部署后重新运行公网 smoke checks。
-4. Workflow Router MVP 落地后，继续 Phase 6 之后的 hardening。
+1. 当 in-app browser 或 Playwright runtime 可用时，补充浏览器截图验证。
+2. 购买域名并将 DNS 指向服务器后，添加域名/HTTPS。
+3. 继续加固 Copilot UX、Watchlist 细节和 Compare report presentation。
 
 ## 当前阻塞
 
@@ -91,6 +90,8 @@ Phase 7：Workflow Router Lean MVP
 - 本地验证通过：`351 passed, 9 warnings, 75 subtests passed`。
 - 已用 SQLite 验证 Alembic migration chain 可升级到 `20260615_0002_add_workflow_router_tables.py`。
 - 已更新 Caddy 生产代理规则，覆盖 Phase 7 API 前缀：`/copilot/*`、`/watchlist*` 和 `/compare*`。
+- 已将 Phase 7 部署到阿里云 demo，服务器提交为 `00a86d8`。
+- 公网 smoke checks 已通过：`/` 返回 HTTP 200 且包含 Copilot UI，`/health` 返回 HTTP 200，`/demo/reference` 返回 HTTP 200，未登录访问 `/copilot/route`、`/watchlist` 和 `/compare/test` 均返回 HTTP 401。
 
 ## 已完成
 
@@ -119,6 +120,7 @@ Phase 7：Workflow Router Lean MVP
 
 - [x] Phase 7 Workflow Router Lean MVP 设计审阅。
 - [x] Phase 7 Workflow Router 本地 MVP 实现。
+- [x] Phase 7 Workflow Router 阿里云 demo 部署。
 
 ## 待办
 

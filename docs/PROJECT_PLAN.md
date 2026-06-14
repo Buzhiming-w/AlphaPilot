@@ -262,7 +262,7 @@ Dependencies:
 
 Objective: turn the Dashboard into a natural-language research workspace that routes logged-in users into Watchlist, Multi-Stock Compare, or Single Stock Analysis workflows.
 
-Status: Local MVP implemented and verified; cloud deployment pending
+Status: Deployed to Alibaba Cloud demo
 
 Design:
 - Add a right-side Dashboard Copilot Panel for logged-in users only.
@@ -296,7 +296,7 @@ Tasks:
 - [x] Add right-side Dashboard Copilot Panel.
 - [x] Verify guest access is blocked for Copilot, Watchlist, and Compare.
 - [x] Verify local tests before cloud deployment.
-- [ ] Deploy Phase 7 to Alibaba Cloud demo after local verification.
+- [x] Deploy Phase 7 to Alibaba Cloud demo after local verification.
 
 Completion criteria:
 - A logged-in user can type a natural-language request and receive a structured draft workflow.
