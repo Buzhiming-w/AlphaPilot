@@ -46,6 +46,7 @@ class SqlAlchemyAlphaPilotStore:
                 role="admin",
             )
             session.add(user)
+            session.flush()
             session.add(UserQuotaRecord(user_id=user.id))
             session.commit()
 
@@ -68,6 +69,7 @@ class SqlAlchemyAlphaPilotStore:
                 role=role,
             )
             session.add(record)
+            session.flush()
             session.add(UserQuotaRecord(user_id=record.id))
             session.commit()
             return self._to_user(record)

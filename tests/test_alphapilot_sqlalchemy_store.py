@@ -47,6 +47,31 @@ def test_sqlalchemy_store_persists_users_tokens_quota_and_results(database_url):
 
 
 @pytest.mark.unit
+def test_sqlalchemy_store_flushes_users_before_creating_quota(monkeypatch, database_url):
+    flush_calls = 0
+
+    from sqlalchemy.orm import Session
+
+    original_flush = Session.flush
+
+    def counting_flush(self, *args, **kwargs):
+        nonlocal flush_calls
+        flush_calls += 1
+        return original_flush(self, *args, **kwargs)
+
+    monkeypatch.setattr(Session, "flush", counting_flush)
+
+    store = SqlAlchemyAlphaPilotStore(database_url=database_url)
+    store.create_user(
+        email="flush-order@example.com",
+        password="pass-1234",
+        display_name="Flush Order",
+    )
+
+    assert flush_calls >= 2
+
+
+@pytest.mark.unit
 def test_create_app_can_use_sqlalchemy_database_url(database_url):
     app = create_app(database_url=database_url)
     client = TestClient(app)
