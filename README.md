@@ -14,23 +14,26 @@ real trades.
 
 ## Current Status
 
-Project phase: Phase 5 Frontend MVP scaffold.
+Project phase: Phase 6 Deployment and Safety.
 
 Completed locally:
 
 - DeepSeek-backed TradingAgents smoke run for `NVDA` on `2024-05-10`.
 - Saved reference demo output under `.alphapilot_runtime/`.
 - FastAPI backend scaffold with auth, quota, admin controls, and analysis APIs.
+- SQLAlchemy 2.0 persistence boundary with PostgreSQL-ready migrations.
+- Redis-backed background job path for live analysis workers.
+- Rate limiting hooks for public demo, auth, and analysis creation endpoints.
 - Static frontend workspace under `frontend/`.
 - Public demo endpoint backed by the saved smoke result.
+- Single-server Docker Compose deployment scaffold with Caddy, API, worker, PostgreSQL, and Redis.
 - English and Chinese project docs under `docs/`.
 
-Still pending before public deployment:
+Still pending before real public deployment:
 
-- Persistent database storage instead of the in-memory MVP store.
-- Real background worker for live `TradingAgentsGraph.propagate()` jobs.
-- Rate limiting and production-grade session/token handling.
-- Deployment documentation and safety checks.
+- Purchasing/configuring the Alibaba Cloud lightweight server.
+- Filling real `.env.production` secrets on the server.
+- Running deployment verification against the real server IP/domain.
 - Browser screenshot verification for the frontend.
 
 ## Local Quick Start
@@ -39,6 +42,25 @@ Install the project in editable mode:
 
 ```bash
 pip install -e .
+```
+
+Start local PostgreSQL and Redis:
+
+```bash
+docker compose up -d postgres redis
+```
+
+Set the database URL:
+
+```bash
+export ALPHAPILOT_DATABASE_URL=postgresql+psycopg://alphapilot:alphapilot@localhost:5432/alphapilot
+export ALPHAPILOT_REDIS_URL=redis://localhost:6379/0
+```
+
+Run migrations:
+
+```bash
+alembic upgrade head
 ```
 
 Start the backend:
@@ -53,10 +75,10 @@ Open the frontend directly:
 frontend/index.html
 ```
 
-The frontend defaults to:
+The frontend defaults to same-origin API calls for deployment. For direct local file usage, override the API base once in the browser console:
 
-```text
-http://127.0.0.1:8000
+```js
+localStorage.setItem("alphapilot_api_base", "http://127.0.0.1:8000")
 ```
 
 Default local admin account:
@@ -65,6 +87,9 @@ Default local admin account:
 admin@alphapilot.dev
 admin
 ```
+
+If `ALPHAPILOT_DATABASE_URL` is unset, the API falls back to the in-memory MVP
+store so imports and tests remain lightweight.
 
 ## Backend API
 
@@ -81,8 +106,26 @@ Implemented MVP endpoints:
 - `GET /admin/users`
 - `PATCH /admin/users/{user_id}`
 
-The MVP uses an in-memory repository (`AlphaPilotStore`), so local users and
-jobs reset when the backend process restarts.
+The development path uses SQLAlchemy 2.0 with PostgreSQL. The API can still use
+the in-memory `AlphaPilotStore` fallback when no database URL is configured.
+
+Live analysis requests are queued for a background worker in Phase 6. Demo
+analysis still completes synchronously from the saved reference output.
+
+## Deployment
+
+The first deployment target is one 2 vCPU / 2 GB Alibaba Cloud lightweight
+application server using Docker Compose:
+
+- Caddy for HTTP/HTTPS and static frontend serving.
+- FastAPI/Uvicorn for the API.
+- PostgreSQL for persistence.
+- Redis for queue and rate-limit state.
+- One worker process for live TradingAgents jobs.
+
+See `docs/DEPLOYMENT.md` and `.env.production.example`. Codex should pause and
+ask for server IP, SSH access, domain, and production secret values before
+running real server deployment steps.
 
 ## Demo Data
 

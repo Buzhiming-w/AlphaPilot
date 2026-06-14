@@ -1,6 +1,6 @@
 # AlphaPilot 项目计划
 
-最后更新：2026-06-10
+最后更新：2026-06-14
 
 ## 目标
 
@@ -103,7 +103,7 @@ AlphaPilot 只用于投资研究辅助、面试展示和作品集展示。它不
   - Public Demo
 - [x] 定义 MVP API endpoints。
 - [x] 定义数据库表。
-- [ ] 定义第一版部署目标。
+- [x] 定义第一版部署目标。
 - [x] 增加明确可见的“非投资建议”免责声明要求。
 
 完成标准：
@@ -122,7 +122,7 @@ AlphaPilot 只用于投资研究辅助、面试展示和作品集展示。它不
 
 目标：通过可控的后端 API 暴露 TradingAgents 能力。
 
-状态：MVP 脚手架已实现
+状态：Phase 6 脚手架已完成
 
 推荐技术栈：
 - FastAPI
@@ -133,7 +133,7 @@ AlphaPilot 只用于投资研究辅助、面试展示和作品集展示。它不
 
 任务：
 - [x] 创建后端 app 结构。
-- [ ] 添加从环境变量读取配置的机制。
+- [x] 添加从环境变量读取配置的机制。
 - [x] 创建数据库形状模型：
   - users
   - analysis_jobs
@@ -143,9 +143,9 @@ AlphaPilot 只用于投资研究辅助、面试展示和作品集展示。它不
 - [x] 实现认证。
 - [x] 实现管理员用户控制。
 - [x] 实现使用额度检查。
-- [ ] 实现后台分析任务创建。
+- [x] 实现后台分析任务创建。
 - [x] 将 `TradingAgentsGraph.propagate()` 封装为 engine service。
-- [x] 在 MVP store 中保存原始 final state 和适合前端展示的标准化结果。
+- [x] 在 SQLAlchemy-backed store 中保存原始 final state 和适合前端展示的标准化结果。
 - [x] 添加 API endpoints：
   - `POST /auth/register`
   - `POST /auth/login`
@@ -214,25 +214,44 @@ AlphaPilot 只用于投资研究辅助、面试展示和作品集展示。它不
 
 目标：以低成本、可控、防滥用的方式把应用上线。
 
-状态：未开始
+状态：基础实现已完成；真实服务器部署等待用户提供服务器信息
+
+设计：
+- 目标平台：一台 2 vCPU / 2 GB 阿里云轻量应用服务器。
+- 部署模型：单机 Docker Compose。
+- 反向代理：Caddy，因为它能让小型服务器上的 HTTPS 和静态文件服务更简单。
+- 主机上的服务：
+  - Caddy 反向代理和静态前端。
+  - Uvicorn 提供的 FastAPI API。
+  - PostgreSQL 保存产品数据。
+  - Redis 用于后台任务队列和 rate limiting 计数。
+  - 一个后台 worker 处理 live `TradingAgentsGraph.propagate()` 任务。
+- 安全默认值：
+  - 公开访客可以无登录查看 `GET /demo/reference`。
+  - 注册用户只有在 active 且额度未耗尽时才能创建任务。
+  - Live analysis 进入队列，在 HTTP 请求外执行。
+  - API keys 只存在于服务端环境变量，永远不暴露给前端文件。
+  - Public demo、auth 和 analysis creation endpoints 都需要 rate limiting。
+  - 部署文档必须明确说明服务器 IP、域名、SSH 和密钥值由操作者在 git 外填写。
 
 任务：
-- [ ] 选择部署平台。
-- [ ] 配置生产环境变量。
-- [ ] 设置数据库迁移。
-- [ ] 配置 Redis/background worker。
-- [ ] 添加 rate limiting。
+- [x] 选择部署平台。
+- [x] 配置生产环境变量模板。
+- [x] 设置数据库迁移。
+- [x] 配置 Redis/background worker。
+- [x] 添加 rate limiting。
 - [ ] 如有需要，添加 admin-only 激活或邀请码流程。
-- [ ] 添加任务失败和 LLM 使用量日志。
-- [ ] 添加部署 README。
-- [ ] 验证前端永远拿不到 API keys。
-- [ ] 验证被禁用用户不能创建任务。
+- [x] 添加任务失败和 LLM 使用量日志。
+- [x] 添加部署 README。
+- [x] 验证前端永远拿不到 API keys。
+- [x] 验证被禁用用户不能创建任务。
 
 完成标准：
 - 网站可在线访问。
 - 访客可以查看 public demo 内容。
 - 只有被允许的用户可以消耗 LLM-backed analysis。
 - 生产 secrets 未被提交到仓库。
+- 在操作者提供服务器 IP、SSH access、DNS/domain 和 secret values 之后，可以在 2 vCPU / 2 GB 阿里云轻量服务器上复现部署。
 
 依赖：
 - Phase 4 和 Phase 5。

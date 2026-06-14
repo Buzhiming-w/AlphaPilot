@@ -1,6 +1,6 @@
 # AlphaPilot 技术决策
 
-最后更新：2026-06-10
+最后更新：2026-06-14
 
 本文档记录重要技术和产品决策，使项目随着时间推进仍然可理解。
 
@@ -137,6 +137,60 @@
 - API consumers 使用稳定 section 名：`market`、`sentiment`、`news`、`fundamentals`、`investment`、`trader`、`final`。
 - 未来 engine 变更应尽量在 normalizer 中吸收。
 
+### 2026-06-14：产品持久化使用 PostgreSQL 与 SQLAlchemy 2.0
+
+决策：
+- 使用 SQLAlchemy 2.0 作为后端持久化边界。
+- 本地开发和生产通过 `ALPHAPILOT_DATABASE_URL` 使用 PostgreSQL。
+- 使用 Alembic 管理 schema migrations。
+- 当没有配置数据库 URL 时，保留 in-memory `AlphaPilotStore` 作为轻量 fallback，方便 import 和单元测试。
+
+原因：
+- AlphaPilot 的核心产品数据是关系型的：users、tokens、quotas、jobs、results、usage logs。
+- PostgreSQL 支持生产并发，并能用 JSONB 存储原始 TradingAgents state。
+- 开发阶段直接使用 PostgreSQL 可以减少 SQLite 到 PostgreSQL 的迁移差异。
+- SQLAlchemy 让 API 层不依赖具体数据库细节。
+
+影响：
+- 开发者应使用 `docker compose up -d postgres` 启动 PostgreSQL，设置 `ALPHAPILOT_DATABASE_URL`，并运行 `alembic upgrade head`。
+- 测试仍可注入临时 SQLite URL 来快速验证 repository 行为。
+- 后续后台 worker 应复用同样的 SQLAlchemy repository/session 模式。
+
+### 2026-06-14：Phase 6 使用一台阿里云轻量服务器和 Caddy 部署
+
+决策：
+- AlphaPilot 第一版在线部署目标是一台 2 vCPU / 2 GB 阿里云轻量应用服务器。
+- Docker Compose 会在同一台主机上运行 Caddy、FastAPI/Uvicorn、静态前端、PostgreSQL、Redis 和一个后台 worker。
+- Caddy 作为反向代理和 HTTPS 入口。
+
+原因：
+- 单台轻量服务器能让第一版 public demo 的成本和运维复杂度都保持较低。
+- Docker Compose 让部署可复现，也便于面试讲解。
+- 相比自定义 Nginx 配置，Caddy 能减少反向代理和 TLS 配置负担。
+- 应用是低流量且有额度控制的 demo，Phase 6 使用一个 worker 足够。
+
+影响：
+- 生产文档必须明确 memory limits、swap、secrets、DNS 和操作者提供的服务器信息。
+- 公开使用前，后端必须把 live analysis 移到 worker process 中执行。
+- 如果后续使用量增长，可以再拆分前端托管、托管 PostgreSQL 或托管 Redis。
+
+### 2026-06-14：用 Redis Queue 和 API Rate Limiting 做部署安全
+
+决策：
+- 使用 Redis 进行后台任务分发和简单 rate-limit 计数。
+- 为测试和本地 fallback 保留 inline queue implementation。
+- 对 public demo、auth 和 analysis creation endpoints 应用 rate limits。
+
+原因：
+- `TradingAgentsGraph.propagate()` 可能运行数分钟，不应阻塞 HTTP request。
+- Redis 已经可以作为轻量 Docker 服务接入，比更重的任务系统更适合 2 GB 部署目标。
+- Rate limiting 配合 admin quotas 可以降低服务端 LLM key 被随意滥用的风险。
+
+影响：
+- API 为 live analysis 创建 queued job 并立即返回。
+- Worker process 负责 live engine execution 和 failure logging。
+- 测试应覆盖 disabled users、quota exhausted、queued job creation、worker completion/failure 和 rate-limit rejection。
+
 ## 已提出但尚未最终确定
 
 ### 后端技术栈
@@ -153,7 +207,7 @@
 - FastAPI 轻量，适合构建作品集/demo API。
 
 状态：
-- FastAPI 已用于 MVP 产品层。持久化数据库和 worker 选择仍未最终确定。
+- FastAPI、PostgreSQL、SQLAlchemy 2.0、Alembic、Redis 和轻量 Redis queue 已被选为 Phase 6 后端方案。
 
 ### 前端技术栈
 

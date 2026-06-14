@@ -1,4 +1,33 @@
 services:
+  postgres:
+    image: postgres:16
+    environment:
+      POSTGRES_DB: alphapilot
+      POSTGRES_USER: alphapilot
+      POSTGRES_PASSWORD: alphapilot
+    ports:
+      - "5432:5432"
+    volumes:
+      - alphapilot_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U alphapilot -d alphapilot"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - alphapilot_redisdata:/data
+    command: ["redis-server", "--appendonly", "yes"]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
   tradingagents:
     build: .
     env_file:
@@ -31,5 +60,7 @@ services:
       - ollama
 
 volumes:
+  alphapilot_pgdata:
+  alphapilot_redisdata:
   tradingagents_data:
   ollama_data:

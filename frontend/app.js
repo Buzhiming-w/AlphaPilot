@@ -1,4 +1,4 @@
-const API_BASE = localStorage.getItem("alphapilot_api_base") || "http://127.0.0.1:8000";
+const API_BASE = localStorage.getItem("alphapilot_api_base") || window.location.origin;
 
 const demoResult = {
   decision: "Overweight",

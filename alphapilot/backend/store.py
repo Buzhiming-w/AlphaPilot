@@ -51,6 +51,19 @@ class AnalysisResult:
     created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
 
 
+@dataclass
+class ApiUsageLog:
+    id: str
+    user_id: str | None
+    endpoint: str
+    provider: str | None = None
+    model: str | None = None
+    input_tokens: int | None = None
+    output_tokens: int | None = None
+    estimated_cost_usd: float | None = None
+    created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
+
+
 class AlphaPilotStore:
     """Small in-memory repository for the local MVP and tests.
 
@@ -65,6 +78,7 @@ class AlphaPilotStore:
         self.quotas: dict[str, UserQuota] = {}
         self.jobs: dict[str, AnalysisJob] = {}
         self.results: dict[str, AnalysisResult] = {}
+        self.usage_logs: list[ApiUsageLog] = []
         self.create_user(
             email="admin@alphapilot.dev",
             password="admin",
@@ -177,12 +191,24 @@ class AlphaPilotStore:
         job.updated_at = datetime.now(timezone.utc)
         return job
 
+    def mark_job_running(self, job_id: str) -> AnalysisJob:
+        job = self.jobs[job_id]
+        job.status = "running"
+        job.updated_at = datetime.now(timezone.utc)
+        return job
+
     def fail_job(self, job_id: str, error: str) -> AnalysisJob:
         job = self.jobs[job_id]
         job.status = "failed"
         job.error = error
         job.updated_at = datetime.now(timezone.utc)
         return job
+
+    def get_job(self, job_id: str) -> AnalysisJob | None:
+        return self.jobs.get(job_id)
+
+    def get_result(self, result_id: str | None) -> AnalysisResult | None:
+        return self.results.get(result_id) if result_id else None
 
     def list_jobs_for_user(self, user: User) -> list[AnalysisJob]:
         if user.role == "admin":
@@ -192,3 +218,33 @@ class AlphaPilotStore:
             key=lambda job: job.created_at,
             reverse=True,
         )
+
+    def list_users(self) -> list[User]:
+        return list(self.users.values())
+
+    def log_api_usage(
+        self,
+        *,
+        user_id: str | None,
+        endpoint: str,
+        provider: str | None = None,
+        model: str | None = None,
+        input_tokens: int | None = None,
+        output_tokens: int | None = None,
+        estimated_cost_usd: float | None = None,
+    ) -> ApiUsageLog:
+        log = ApiUsageLog(
+            id=str(uuid4()),
+            user_id=user_id,
+            endpoint=endpoint,
+            provider=provider,
+            model=model,
+            input_tokens=input_tokens,
+            output_tokens=output_tokens,
+            estimated_cost_usd=estimated_cost_usd,
+        )
+        self.usage_logs.append(log)
+        return log
+
+    def list_usage_logs(self) -> list[ApiUsageLog]:
+        return list(self.usage_logs)

@@ -1,6 +1,6 @@
 # AlphaPilot 架构笔记
 
-最后更新：2026-06-10
+最后更新：2026-06-14
 
 本文档用于记录我们在阅读 TradingAgents 代码库并将其改造成 AlphaPilot 时学到的内容。
 
@@ -13,6 +13,7 @@ AlphaPilot 会保留 TradingAgents Python 引擎作为决策分析核心，并�
 - 数据库：保存用户、任务、结果、额度和使用日志。
 - 前端：提交股票分析并查看报告。
 - 管理员控制：防止服务端 LLM API key 被滥用。
+- Caddy 反向代理：用于第一版单机生产部署。
 
 ## Phase 4/5 MVP 实现快照
 
@@ -20,15 +21,29 @@ AlphaPilot 会保留 TradingAgents Python 引擎作为决策分析核心，并�
 
 - `alphapilot/backend/app.py`：FastAPI app factory 和路由定义。
 - `alphapilot/backend/store.py`：内存 repository，包含数据库形状的用户、额度、任务和结果实体。
+- `alphapilot/backend/sqlalchemy_store.py`：SQLAlchemy 2.0 repository，用于持久化产品数据。
+- `alphapilot/backend/db_models.py`：users、tokens、quotas、jobs、results、usage logs 的 ORM model 定义。
+- `alembic/`：migration 环境和初始 schema migration。
 - `alphapilot/backend/engine_service.py`：API 路由和 `TradingAgentsGraph` 之间的服务边界。
 - `alphapilot/backend/result_normalizer.py`：将原始 engine state 或已保存 log JSON 转成前端报告 sections。
 - `alphapilot/backend/security.py`：本地密码 hash 和 bearer token 生成。
 - `frontend/index.html`、`frontend/styles.css`、`frontend/app.js`：静态 OpenBB-inspired MVP 工作台。
 
-重要取舍：
+持久化方向：
 
-- 后端当前使用内存 store，以便快速测试 auth、quota、admin controls、result normalization 和前端集成。
-- Store 方法按未来数据库操作形状设计，所以 Phase 6 可以用 PostgreSQL/SQLAlchemy 替换存储，而不改变路由语义。
+- 本地开发和部署应通过 `ALPHAPILOT_DATABASE_URL` 使用 PostgreSQL。
+- SQLAlchemy JSON 字段在 PostgreSQL 上使用 `JSONB`，在 SQLite/test database 上使用通用 JSON。
+- 如果没有设置 `ALPHAPILOT_DATABASE_URL`，`create_app()` 会回退到 in-memory MVP store，方便 import 和单元测试。
+- API routes 使用 `get_job()`、`get_result()`、`list_users()` 等 repository 方法，而不是直接读取内存字典。
+
+数据库表：
+
+- `users`
+- `user_tokens`
+- `user_quotas`
+- `analysis_jobs`
+- `analysis_results`
+- `api_usage_logs`
 
 ## 第一次已验证本地运行
 
@@ -272,6 +287,26 @@ Database stores final result
 - LLM 输出具有非确定性。
 - 如果产品措辞不谨慎，可能产生金融建议责任风险。
 - 如果太晚加入 worker/database/cache，部署复杂度会增加。
+
+## Phase 6 部署架构
+
+第一版生产部署目标是一台 2 vCPU / 2 GB 阿里云轻量应用服务器。部署应保持小而清晰：
+
+```text
+Internet
+  |
+  v
+Caddy :80/:443
+  |-- /api/* 和 backend routes -> FastAPI/Uvicorn
+  |-- static assets -> frontend/
+
+FastAPI
+  |-- PostgreSQL: users, tokens, quotas, jobs, results, usage logs
+  |-- Redis: queue 和 rate-limit counters
+  |-- Worker: live TradingAgentsGraph.propagate() jobs
+```
+
+Live analysis 不能在 HTTP request path 中直接运行。`POST /analysis` 会在 auth、active-user、quota 和 rate-limit checks 后创建 queued job。Worker 从持久化存储加载 job，标记为 running，调用 engine service，保存标准化结果/raw state，记录 usage 或 failure metadata，并把 job 标记为 completed 或 failed。
 
 ## 第一次运行后需要补充
 

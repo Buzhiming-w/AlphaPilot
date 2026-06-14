@@ -1,6 +1,6 @@
 # AlphaPilot Architecture Notes
 
-Last updated: 2026-06-10
+Last updated: 2026-06-14
 
 This document tracks what we learn while reading the TradingAgents codebase and adapting it into AlphaPilot.
 
@@ -13,6 +13,7 @@ AlphaPilot will keep the TradingAgents Python engine as the decision-analysis co
 - Database for users, jobs, results, quotas, and usage logs.
 - Frontend for submitting stock analysis and viewing reports.
 - Admin controls to prevent abuse of server-side LLM API keys.
+- Caddy reverse proxy for the first single-server production deployment.
 
 ## Phase 4/5 MVP Implementation Snapshot
 
@@ -20,15 +21,29 @@ Current product-layer files:
 
 - `alphapilot/backend/app.py`: FastAPI app factory and route definitions.
 - `alphapilot/backend/store.py`: in-memory repository with database-shaped user, quota, job, and result entities.
+- `alphapilot/backend/sqlalchemy_store.py`: SQLAlchemy 2.0 repository for persistent product data.
+- `alphapilot/backend/db_models.py`: ORM model definitions for users, tokens, quotas, jobs, results, and usage logs.
+- `alembic/`: migration environment and initial schema migration.
 - `alphapilot/backend/engine_service.py`: service boundary between API routes and `TradingAgentsGraph`.
 - `alphapilot/backend/result_normalizer.py`: converts raw engine state or saved log JSON into frontend result sections.
 - `alphapilot/backend/security.py`: local password hashing and bearer-token generation.
 - `frontend/index.html`, `frontend/styles.css`, `frontend/app.js`: static OpenBB-inspired MVP workspace.
 
-Important tradeoff:
+Persistence direction:
 
-- The backend currently uses an in-memory store so auth, quota, admin controls, result normalization, and frontend integration can be tested quickly.
-- The store methods are shaped around future database operations, so Phase 6 can replace storage with PostgreSQL/SQLAlchemy without changing route semantics.
+- Local development and deployment should use PostgreSQL through `ALPHAPILOT_DATABASE_URL`.
+- SQLAlchemy JSON fields use PostgreSQL `JSONB` when running on PostgreSQL and generic JSON on SQLite/test databases.
+- If no `ALPHAPILOT_DATABASE_URL` is set, `create_app()` falls back to the in-memory MVP store so imports and unit tests remain lightweight.
+- API routes use repository methods such as `get_job()`, `get_result()`, and `list_users()` instead of reading in-memory dictionaries directly.
+
+Database tables:
+
+- `users`
+- `user_tokens`
+- `user_quotas`
+- `analysis_jobs`
+- `analysis_results`
+- `api_usage_logs`
 
 ## First Verified Local Run
 
@@ -272,6 +287,26 @@ Database stores final result
 - Non-deterministic LLM output.
 - Financial advice liability if product language is careless.
 - Deployment complexity if worker/database/cache are added too late.
+
+## Phase 6 Deployment Architecture
+
+The first production deployment targets a single 2 vCPU / 2 GB Alibaba Cloud lightweight application server. The deployment should stay intentionally small:
+
+```text
+Internet
+  |
+  v
+Caddy :80/:443
+  |-- /api/* and backend routes -> FastAPI/Uvicorn
+  |-- static assets -> frontend/
+
+FastAPI
+  |-- PostgreSQL: users, tokens, quotas, jobs, results, usage logs
+  |-- Redis: queue and rate-limit counters
+  |-- Worker: live TradingAgentsGraph.propagate() jobs
+```
+
+Live analysis must not run inside the HTTP request path. `POST /analysis` creates a queued job after auth, active-user, quota, and rate-limit checks. A worker loads the job from persistent storage, marks it running, calls the engine service, persists the normalized result/raw state, records usage or failure metadata, and marks the job completed or failed.
 
 ## Notes To Fill After First Run
 

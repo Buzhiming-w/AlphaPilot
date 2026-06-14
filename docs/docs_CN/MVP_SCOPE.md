@@ -1,6 +1,6 @@
 # AlphaPilot MVP 范围
 
-最后更新：2026-06-10
+最后更新：2026-06-14
 
 ## 产品边界
 
@@ -51,13 +51,19 @@ AlphaPilot 不执行交易，不提供金融建议，也不会把 LLM API key �
 
 ## 数据模型
 
-MVP 后端当前使用内存 repository，但实体按数据库形状设计。生产数据库应保留这些概念：
+MVP 后端现在已有 SQLAlchemy 2.0 repository 和 PostgreSQL-ready models。内存 repository 仍作为轻量 fallback。持久化 schema 保留这些概念：
 
 - `users`：邮箱、密码 hash、显示名、角色、是否启用。
 - `analysis_jobs`：所属用户、ticker、交易日期、模式、选择的 analysts、状态、结果 id、错误、时间戳。
 - `analysis_results`：任务 id、标准化前端结果、原始 engine state。
 - `user_quotas`：用户 id、每日额度、今日已用、使用日期。
 - `api_usage_logs`：未来用于请求、token 和成本追踪。
+
+本地开发数据库 URL：
+
+```text
+postgresql+psycopg://alphapilot:alphapilot@localhost:5432/alphapilot
+```
 
 ## 结果 Schema
 
@@ -89,4 +95,4 @@ OpenBB 将自己定位为面向 analysts、quants 和 AI agents 的金融数据�
 
 ## 第一版部署目标
 
-尚未最终确定。建议下一步决策：第一版 demo 将 FastAPI API 和静态前端一起部署；等数据库、worker 和 rate limiting 完成后，再考虑拆分前端托管。
+Phase 6 目标是一台 2 vCPU / 2 GB 阿里云轻量应用服务器。第一版在线版本应通过 Docker Compose 在同一台主机上运行 Caddy、FastAPI、静态前端、PostgreSQL、Redis 和一个后台 worker。只有当单机部署稳定后，才考虑把前端托管拆出去。

@@ -1,0 +1,80 @@
+services:
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    env_file:
+      - ${ALPHAPILOT_ENV_FILE:-.env.production}
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - ./frontend:/srv/alphapilot/frontend:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - api
+
+  api:
+    build: .
+    restart: unless-stopped
+    env_file:
+      - ${ALPHAPILOT_ENV_FILE:-.env.production}
+    command: uvicorn alphapilot.backend.app:app --host 0.0.0.0 --port 8000
+    expose:
+      - "8000"
+    volumes:
+      - alphapilot_runtime:/home/appuser/app/.alphapilot_runtime
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  worker:
+    build: .
+    restart: unless-stopped
+    env_file:
+      - ${ALPHAPILOT_ENV_FILE:-.env.production}
+    command: python -m alphapilot.backend.worker
+    volumes:
+      - alphapilot_runtime:/home/appuser/app/.alphapilot_runtime
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  postgres:
+    image: postgres:16
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: alphapilot
+      POSTGRES_USER: alphapilot
+      POSTGRES_PASSWORD: ${ALPHAPILOT_POSTGRES_PASSWORD:?set in .env.production}
+    volumes:
+      - alphapilot_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U alphapilot -d alphapilot"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes:
+      - alphapilot_redisdata:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  alphapilot_pgdata:
+  alphapilot_redisdata:
+  alphapilot_runtime:
+  caddy_data:
+  caddy_config:

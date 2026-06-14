@@ -1,9 +1,11 @@
 from __future__ import annotations
 
-from fastapi import Depends, FastAPI, Header, HTTPException, status
+from fastapi import Depends, FastAPI, Header, HTTPException, Request, status
 from fastapi.middleware.cors import CORSMiddleware
 
 from .engine_service import AnalysisEngineService
+from .queue import AnalysisQueue, InlineAnalysisQueue, RedisAnalysisQueue
+from .rate_limit import InMemoryRateLimiter, RateLimiter, RedisRateLimiter
 from .schemas import (
     AdminUserPatch,
     AnalysisCreateRequest,
@@ -14,14 +16,47 @@ from .schemas import (
     TokenResponse,
     UserResponse,
 )
+from .settings import (
+    get_database_url,
+    get_queue_backend,
+    get_rate_limit,
+    get_rate_limit_window_seconds,
+    get_redis_url,
+    is_rate_limit_enabled,
+)
 from .store import AlphaPilotStore, AnalysisJob, User, UserQuota
+from .sqlalchemy_store import SqlAlchemyAlphaPilotStore
+
+
+Store = AlphaPilotStore | SqlAlchemyAlphaPilotStore
+
+
+def _create_queue() -> AnalysisQueue:
+    if get_queue_backend() == "redis":
+        return RedisAnalysisQueue(get_redis_url())
+    return InlineAnalysisQueue()
+
+
+def _create_rate_limiter() -> RateLimiter | None:
+    if not is_rate_limit_enabled():
+        return None
+    if get_queue_backend() == "redis":
+        return RedisRateLimiter(
+            get_redis_url(),
+            limit=get_rate_limit(),
+            window_seconds=get_rate_limit_window_seconds(),
+        )
+    return InMemoryRateLimiter(
+        limit=get_rate_limit(),
+        window_seconds=get_rate_limit_window_seconds(),
+    )
 
 
 def _quota_payload(quota: UserQuota) -> dict[str, int]:
     return {"daily_limit": quota.daily_limit, "used_today": quota.used_today}
 
 
-def _user_payload(store: AlphaPilotStore, user: User) -> UserResponse:
+def _user_payload(store: Store, user: User) -> UserResponse:
     quota = store.get_quota(user.id)
     return UserResponse(
         id=user.id,
@@ -50,8 +85,11 @@ def _job_payload(job: AnalysisJob) -> AnalysisJobResponse:
 
 def create_app(
     *,
-    store: AlphaPilotStore | None = None,
+    store: Store | None = None,
+    database_url: str | None = None,
     engine: AnalysisEngineService | None = None,
+    queue: AnalysisQueue | None = None,
+    rate_limiter: RateLimiter | None = None,
 ) -> FastAPI:
     app = FastAPI(title="AlphaPilot API", version="0.1.0")
     app.add_middleware(
@@ -61,8 +99,23 @@ def create_app(
         allow_methods=["*"],
         allow_headers=["*"],
     )
-    app.state.store = store or AlphaPilotStore()
+    resolved_database_url = database_url or get_database_url()
+    app.state.store = store or (
+        SqlAlchemyAlphaPilotStore(resolved_database_url)
+        if resolved_database_url
+        else AlphaPilotStore()
+    )
     app.state.engine = engine or AnalysisEngineService()
+    app.state.queue = queue or _create_queue()
+    app.state.rate_limiter = rate_limiter if rate_limiter is not None else _create_rate_limiter()
+
+    def enforce_rate_limit(request: Request, bucket: str) -> None:
+        limiter = app.state.rate_limiter
+        if not limiter:
+            return
+        client_host = request.client.host if request.client else "unknown"
+        if not limiter.allow(f"{bucket}:{client_host}"):
+            raise HTTPException(status_code=429, detail="Rate limit exceeded")
 
     def current_user(authorization: str | None = Header(default=None)) -> User:
         if not authorization or not authorization.startswith("Bearer "):
@@ -83,12 +136,14 @@ def create_app(
         return {"status": "ok"}
 
     @app.get("/demo/reference")
-    def demo_reference() -> dict:
+    def demo_reference(request: Request) -> dict:
+        enforce_rate_limit(request, "demo")
         normalized, _ = app.state.engine.run_demo()
         return normalized
 
     @app.post("/auth/register", response_model=UserResponse, status_code=201)
-    def register(payload: RegisterRequest) -> UserResponse:
+    def register(payload: RegisterRequest, request: Request) -> UserResponse:
+        enforce_rate_limit(request, "auth")
         try:
             user = app.state.store.create_user(
                 email=str(payload.email),
@@ -100,7 +155,8 @@ def create_app(
         return _user_payload(app.state.store, user)
 
     @app.post("/auth/login", response_model=TokenResponse)
-    def login(payload: LoginRequest) -> TokenResponse:
+    def login(payload: LoginRequest, request: Request) -> TokenResponse:
+        enforce_rate_limit(request, "auth")
         token = app.state.store.authenticate(str(payload.email), payload.password)
         if not token:
             raise HTTPException(status_code=401, detail="Invalid credentials")
@@ -113,8 +169,10 @@ def create_app(
     @app.post("/analysis", response_model=AnalysisJobResponse, status_code=201)
     def create_analysis(
         payload: AnalysisCreateRequest,
+        request: Request,
         user: User = Depends(current_user),
     ) -> AnalysisJobResponse:
+        enforce_rate_limit(request, "analysis")
         if not user.is_active:
             raise HTTPException(status_code=403, detail="User account is disabled")
         try:
@@ -129,15 +187,11 @@ def create_app(
             mode=payload.mode,
             selected_analysts=payload.selected_analysts,
         )
+        if payload.mode == "live":
+            app.state.queue.enqueue(job.id)
+            return _job_payload(job)
         try:
-            if payload.mode == "demo":
-                normalized, raw_state = app.state.engine.run_demo()
-            else:
-                normalized, raw_state = app.state.engine.run_live(
-                    payload.ticker,
-                    payload.trade_date,
-                    payload.selected_analysts,
-                )
+            normalized, raw_state = app.state.engine.run_demo()
             job = app.state.store.complete_job(job.id, normalized, raw_state)
         except Exception as exc:  # pragma: no cover - exercised by integration tests later
             job = app.state.store.fail_job(job.id, str(exc))
@@ -152,10 +206,10 @@ def create_app(
         job_id: str,
         user: User = Depends(current_user),
     ) -> AnalysisDetailResponse:
-        job = app.state.store.jobs.get(job_id)
+        job = app.state.store.get_job(job_id)
         if not job or (user.role != "admin" and job.user_id != user.id):
             raise HTTPException(status_code=404, detail="Analysis job not found")
-        result = app.state.store.results.get(job.result_id) if job.result_id else None
+        result = app.state.store.get_result(job.result_id)
         return AnalysisDetailResponse(
             job=_job_payload(job),
             result=result.normalized if result else None,
@@ -163,7 +217,7 @@ def create_app(
 
     @app.get("/admin/users", response_model=list[UserResponse])
     def list_users(_: User = Depends(admin_user)) -> list[UserResponse]:
-        return [_user_payload(app.state.store, user) for user in app.state.store.users.values()]
+        return [_user_payload(app.state.store, user) for user in app.state.store.list_users()]
 
     @app.patch("/admin/users/{user_id}", response_model=UserResponse)
     def patch_user(
@@ -171,13 +225,14 @@ def create_app(
         payload: AdminUserPatch,
         _: User = Depends(admin_user),
     ) -> UserResponse:
-        if user_id not in app.state.store.users:
-            raise HTTPException(status_code=404, detail="User not found")
-        user = app.state.store.set_user_controls(
-            user_id,
-            is_active=payload.is_active,
-            daily_limit=payload.daily_limit,
-        )
+        try:
+            user = app.state.store.set_user_controls(
+                user_id,
+                is_active=payload.is_active,
+                daily_limit=payload.daily_limit,
+            )
+        except KeyError as exc:
+            raise HTTPException(status_code=404, detail="User not found") from exc
         return _user_payload(app.state.store, user)
 
     return app

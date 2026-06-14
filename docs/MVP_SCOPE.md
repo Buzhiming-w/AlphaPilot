@@ -1,6 +1,6 @@
 # AlphaPilot MVP Scope
 
-Last updated: 2026-06-10
+Last updated: 2026-06-14
 
 ## Product Boundary
 
@@ -51,13 +51,19 @@ The first frontend implementation is a static OpenBB-inspired research workspace
 
 ## Data Model
 
-The MVP backend currently uses an in-memory repository with database-shaped entities. The production database should preserve these concepts:
+The MVP backend now has a SQLAlchemy 2.0 repository with PostgreSQL-ready models. The in-memory repository remains as a lightweight fallback. The persistent schema preserves these concepts:
 
 - `users`: email, password hash, display name, role, active flag.
 - `analysis_jobs`: owner, ticker, trade date, mode, selected analysts, status, result id, error, timestamps.
 - `analysis_results`: job id, normalized frontend result, raw engine state.
 - `user_quotas`: user id, daily limit, used today, usage date.
 - `api_usage_logs`: future table for request, token, and cost tracking.
+
+Local development database URL:
+
+```text
+postgresql+psycopg://alphapilot:alphapilot@localhost:5432/alphapilot
+```
 
 ## Result Schema
 
@@ -89,4 +95,4 @@ OpenBB positions itself as a financial data platform for analysts, quants, and A
 
 ## First Deployment Target
 
-Not finalized. Recommended next decision: deploy the FastAPI API and static frontend together for the first demo, then split frontend hosting only after database, worker, and rate limiting are in place.
+Phase 6 targets one 2 vCPU / 2 GB Alibaba Cloud lightweight application server. The first online version should run Caddy, FastAPI, the static frontend, PostgreSQL, Redis, and one background worker through Docker Compose on the same host. Frontend hosting can be split out later only after the single-server deployment is stable.

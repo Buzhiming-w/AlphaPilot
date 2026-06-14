@@ -1,6 +1,6 @@
 # AlphaPilot Project Plan
 
-Last updated: 2026-06-10
+Last updated: 2026-06-14
 
 ## Goal
 
@@ -103,7 +103,7 @@ Tasks:
   - Public Demo
 - [x] Define MVP API endpoints.
 - [x] Define database tables.
-- [ ] Define first deployment target.
+- [x] Define first deployment target.
 - [x] Add visible non-advice disclaimer requirements.
 
 Completion criteria:
@@ -122,7 +122,7 @@ Can be parallelized with:
 
 Objective: expose TradingAgents through a controlled backend API.
 
-Status: MVP scaffold implemented
+Status: Completed for Phase 6 scaffold
 
 Recommended stack:
 - FastAPI
@@ -130,10 +130,11 @@ Recommended stack:
 - PostgreSQL
 - Redis + RQ/Celery/Arq for background jobs
 - Pydantic schemas
+- Alembic migrations
 
 Tasks:
 - [x] Create backend app structure.
-- [ ] Add configuration loading from environment variables.
+- [x] Add configuration loading from environment variables.
 - [x] Create database-shaped models:
   - users
   - analysis_jobs
@@ -143,9 +144,9 @@ Tasks:
 - [x] Implement authentication.
 - [x] Implement admin user controls.
 - [x] Implement usage quota checks.
-- [ ] Implement background analysis job creation.
+- [x] Implement background analysis job creation.
 - [x] Wrap `TradingAgentsGraph.propagate()` in an engine service.
-- [x] Persist raw final state and normalized frontend-friendly result in MVP store.
+- [x] Persist raw final state and normalized frontend-friendly result in SQLAlchemy-backed store.
 - [x] Add API endpoints:
   - `POST /auth/register`
   - `POST /auth/login`
@@ -214,25 +215,44 @@ Can be parallelized with:
 
 Objective: put the app online in a controlled, low-cost, low-abuse way.
 
-Status: Not started
+Status: Basic implementation complete; real server deployment pending user-provided server details
+
+Design:
+- Target platform: one 2 vCPU / 2 GB Alibaba Cloud lightweight application server.
+- Deployment model: Docker Compose on one host.
+- Reverse proxy: Caddy, because it keeps HTTPS and static-file serving simple for a small server.
+- Services on the host:
+  - Caddy reverse proxy and static frontend.
+  - FastAPI API served by Uvicorn.
+  - PostgreSQL for product data.
+  - Redis for the background job queue and rate limiting counters.
+  - One background worker process for live `TradingAgentsGraph.propagate()` jobs.
+- Safety defaults:
+  - Public visitors can view `GET /demo/reference` without auth.
+  - Registered users can create jobs only while active and within quota.
+  - Live analysis is queued and processed outside the HTTP request.
+  - API keys stay in server-side environment variables and are never exposed to frontend files.
+  - Rate limiting applies to public demo, auth, and analysis creation endpoints.
+  - Production deployment docs must tell the operator to fill server IP/domain/SSH details outside git.
 
 Tasks:
-- [ ] Choose deployment providers.
-- [ ] Configure production environment variables.
-- [ ] Set database migrations.
-- [ ] Configure Redis/background worker.
-- [ ] Add rate limiting.
+- [x] Choose deployment providers.
+- [x] Configure production environment variable template.
+- [x] Set database migrations.
+- [x] Configure Redis/background worker.
+- [x] Add rate limiting.
 - [ ] Add admin-only user activation or invitation flow if needed.
-- [ ] Add logging for job failures and LLM usage.
-- [ ] Add deployment README.
-- [ ] Verify frontend never receives API keys.
-- [ ] Verify disabled users cannot create jobs.
+- [x] Add logging for job failures and LLM usage.
+- [x] Add deployment README.
+- [x] Verify frontend never receives API keys.
+- [x] Verify disabled users cannot create jobs.
 
 Completion criteria:
 - The site is accessible online.
 - A visitor can view public demo content.
 - Only permitted users can consume LLM-backed analysis.
 - Production secrets are not committed.
+- Deployment can be reproduced on a 2 vCPU / 2 GB Alibaba Cloud lightweight server after the operator provides server IP, SSH access, DNS/domain, and secret values.
 
 Dependencies:
 - Phase 4 and Phase 5.

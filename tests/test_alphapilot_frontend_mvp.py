@@ -40,6 +40,7 @@ def test_frontend_javascript_connects_to_backend_api():
     js = Path("frontend/app.js").read_text(encoding="utf-8")
 
     assert "const API_BASE" in js
+    assert "window.location.origin" in js
     assert "localStorage.setItem(\"alphapilot_token\"" in js
     assert "fetch(`${API_BASE}/auth/login`" in js
     assert "fetch(`${API_BASE}/auth/register`" in js

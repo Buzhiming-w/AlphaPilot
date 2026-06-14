@@ -1,26 +1,30 @@
 # AlphaPilot Status
 
-Last updated: 2026-06-10
+Last updated: 2026-06-14
 
 ## Current Phase
 
-Phase 5: Frontend MVP
+Phase 6: Deployment And Safety
 
 ## Current Task
 
-Turn the first backend/frontend MVP scaffold into a connected, persistent product demo.
+Phase 6 code and deployment scaffold are in place. Real server deployment is paused until the Alibaba Cloud server, SSH, domain, and production secret values are available.
 
 ## Next Steps
 
-1. Replace `AlphaPilotStore` in-memory storage with PostgreSQL/SQLAlchemy or SQLModel.
-2. Add a real background worker for live `TradingAgentsGraph.propagate()` runs.
-3. Choose the first deployment target and add environment/deployment docs.
-4. Add rate limiting and production-grade token/session handling.
-5. Add browser screenshot verification once the in-app browser or Playwright runtime is available.
+1. Buy/configure the Alibaba Cloud lightweight application server.
+2. Fill `.env.production` on the server with real secrets and database password.
+3. Run production migrations and Docker Compose deployment on the server.
+4. Verify the live public URL, Caddy routing, worker processing, rate limiting, and admin controls.
+5. Add browser screenshot verification after the public or local deployment URL is available.
 
 ## Current Blockers
 
-None recorded.
+Waiting for user-provided server details before real deployment:
+- Alibaba Cloud server public IP.
+- SSH username/authentication method.
+- Domain name, if HTTPS with a real hostname is desired.
+- Production secret values, especially `DEEPSEEK_API_KEY` and database password.
 
 ## Important Context
 
@@ -31,6 +35,8 @@ None recorded.
 - `.env` already contains a DeepSeek API key, but provider/model overrides still need to be verified.
 - The original engine entry point is `TradingAgentsGraph.propagate()`.
 - Default config currently uses OpenAI unless overridden by `TRADINGAGENTS_*` environment variables.
+- Phase 6 deployment target is a single Alibaba Cloud lightweight application server with 2 vCPU / 2 GB RAM.
+- Production topology: Caddy reverse proxy, FastAPI API, static frontend, PostgreSQL, Redis, and a background worker on one Docker Compose host.
 
 ## Recent Notes
 
@@ -50,7 +56,20 @@ None recorded.
 - Added `frontend/` static OpenBB-inspired dashboard workspace with dashboard, new analysis, report detail, admin users, public demo, responsive layout, and visible non-advice disclaimer.
 - Added public `GET /demo/reference`, CORS, frontend login/register forms, token persistence, and API-backed analysis submission with demo fallback.
 - Verified the new MVP behavior with `pytest tests/test_alphapilot_backend_mvp.py tests/test_alphapilot_frontend_mvp.py -q` passing 8 tests.
-- Full test suite also passed with `pytest -q`: 322 tests and 75 subtests passed, with environment warnings only.
+- Full test suite also passed with `pytest -q`: 326 tests and 75 subtests passed, with environment warnings only.
+- Added SQLAlchemy 2.0 persistence with `SqlAlchemyAlphaPilotStore`, PostgreSQL-ready JSONB fields, token persistence, quota persistence, job/result persistence, and API routes that use repository methods instead of in-memory dictionaries.
+- Added Alembic configuration and initial migration for `users`, `user_tokens`, `user_quotas`, `analysis_jobs`, `analysis_results`, and `api_usage_logs`.
+- Added `postgres` service to `docker-compose.yml` and `ALPHAPILOT_DATABASE_URL` to `.env.example`.
+- Verified the migration with `ALPHAPILOT_DATABASE_URL=sqlite:////tmp/alphapilot_alembic_check.db alembic upgrade head`.
+- Re-ran the full test suite after persistence work: `326 passed, 75 subtests passed`.
+- Chose Phase 6 deployment design: one Alibaba Cloud lightweight server, Docker Compose, Caddy reverse proxy, PostgreSQL, Redis, FastAPI, static frontend, and one background worker.
+- Added Phase 6 background worker path: live analysis jobs are queued by the API and processed outside the HTTP request.
+- Added Redis queue implementation, inline test queue, API rate limiting, and worker usage/failure logging.
+- Added production deployment scaffold: `docker-compose.prod.yml`, `Caddyfile`, `.env.production.example`, and bilingual `docs/DEPLOYMENT.md`.
+- Changed the static frontend to default to same-origin API calls so it works behind Caddy; local direct-file usage can still override `alphapilot_api_base`.
+- Verified Phase 6 with `pytest -q`: `332 passed, 75 subtests passed`.
+- Verified Alembic migration with SQLite and Docker Compose production config with `.env.production.example`.
+- Re-ran tests inside the `AlphaPilot` conda environment after adding the missing `email-validator` dependency required by Pydantic `EmailStr`: `332 passed, 75 subtests passed`.
 
 ## Completed
 
@@ -67,10 +86,14 @@ None recorded.
 - [x] Define MVP backend/frontend scope.
 - [x] Build first backend API/auth/quota/admin scaffold.
 - [x] Build first frontend product UI scaffold.
+- [x] Add SQLAlchemy/PostgreSQL persistence layer and Alembic migration scaffold.
+- [x] Choose first deployment target and Phase 6 production topology.
+- [x] Add background worker queue path for live analysis jobs.
+- [x] Add rate limiting and production deployment scaffold.
 
 ## In Progress
 
-- [ ] Replace in-memory store with persistent storage and production background jobs.
+- [ ] Deploy to Alibaba Cloud lightweight server after user provides server details.
 
 ## Pending
 

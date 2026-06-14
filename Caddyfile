@@ -1,0 +1,39 @@
+{$ALPHAPILOT_PUBLIC_HOST::80} {
+    encode gzip
+
+    root * /srv/alphapilot/frontend
+
+    handle /health {
+        reverse_proxy api:8000
+    }
+
+    handle /demo/* {
+        reverse_proxy api:8000
+    }
+
+    handle /auth/* {
+        reverse_proxy api:8000
+    }
+
+    handle /me {
+        reverse_proxy api:8000
+    }
+
+    handle /analysis* {
+        reverse_proxy api:8000
+    }
+
+    handle /admin/* {
+        reverse_proxy api:8000
+    }
+
+    handle /api/* {
+        uri strip_prefix /api
+        reverse_proxy api:8000
+    }
+
+    handle {
+        try_files {path} /index.html
+        file_server
+    }
+}

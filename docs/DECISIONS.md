@@ -1,6 +1,6 @@
 # AlphaPilot Decisions
 
-Last updated: 2026-06-10
+Last updated: 2026-06-14
 
 This document records important technical and product decisions so the project stays understandable over time.
 
@@ -137,6 +137,60 @@ Consequences:
 - API consumers use stable section names: `market`, `sentiment`, `news`, `fundamentals`, `investment`, `trader`, and `final`.
 - Future engine changes should be absorbed in the normalizer when possible.
 
+### 2026-06-14: Use PostgreSQL With SQLAlchemy 2.0 For Product Persistence
+
+Decision:
+- Use SQLAlchemy 2.0 as the backend persistence boundary.
+- Use PostgreSQL for local development and production through `ALPHAPILOT_DATABASE_URL`.
+- Use Alembic for schema migrations.
+- Keep the in-memory `AlphaPilotStore` as a fallback for lightweight imports/tests when no database URL is configured.
+
+Reasoning:
+- AlphaPilot's core product data is relational: users, tokens, quotas, jobs, results, and usage logs.
+- PostgreSQL supports production concurrency and JSONB storage for raw TradingAgents state.
+- Developing against PostgreSQL reduces SQLite-to-PostgreSQL drift before deployment.
+- SQLAlchemy keeps the API layer independent from database-specific details.
+
+Consequences:
+- Developers should start PostgreSQL with `docker compose up -d postgres`, set `ALPHAPILOT_DATABASE_URL`, and run `alembic upgrade head`.
+- Tests can still inject temporary SQLite URLs for fast repository verification.
+- Background workers should reuse the same SQLAlchemy repository/session pattern.
+
+### 2026-06-14: Deploy Phase 6 On One Alibaba Cloud Lightweight Server With Caddy
+
+Decision:
+- The first online AlphaPilot deployment will target one 2 vCPU / 2 GB Alibaba Cloud lightweight application server.
+- Docker Compose will run Caddy, FastAPI/Uvicorn, the static frontend, PostgreSQL, Redis, and one background worker on the same host.
+- Caddy is the reverse proxy and HTTPS entrypoint.
+
+Reasoning:
+- A single lightweight server keeps cost and operations complexity low for the first public demo.
+- Docker Compose makes the deployment reproducible and easy to explain in interviews.
+- Caddy reduces reverse-proxy and TLS configuration burden compared with a custom Nginx setup.
+- The app is low-throughput and quota-controlled, so a single worker is enough for Phase 6.
+
+Consequences:
+- Production docs must be explicit about memory limits, swap, secrets, DNS, and operator-provided server details.
+- The backend must move live analysis into a worker process before public use.
+- The app can later split frontend hosting, managed PostgreSQL, or managed Redis if usage grows.
+
+### 2026-06-14: Use Redis Queue And API Rate Limiting For Deployment Safety
+
+Decision:
+- Use Redis for background job dispatch and simple rate-limit counters.
+- Keep an inline queue implementation for tests and local fallback.
+- Apply rate limits to public demo, auth, and analysis creation endpoints.
+
+Reasoning:
+- `TradingAgentsGraph.propagate()` can take minutes and should not block an HTTP request.
+- Redis is already available as a small Docker service and fits the 2 GB deployment target better than a heavier task system.
+- Rate limiting plus admin quotas reduces casual abuse of server-side LLM keys.
+
+Consequences:
+- The API creates queued jobs and returns immediately for live analysis.
+- A worker process owns live engine execution and failure logging.
+- Tests should cover disabled users, quota exhaustion, queued job creation, worker completion/failure, and rate-limit rejection.
+
 ## Proposed But Not Final
 
 ### Backend Stack
@@ -153,7 +207,7 @@ Reasoning:
 - FastAPI is lightweight and strong for portfolio/demo APIs.
 
 Status:
-- FastAPI chosen for the MVP product layer. Persistent database and worker choices remain open.
+- FastAPI, PostgreSQL, SQLAlchemy 2.0, Alembic, Redis, and a lightweight Redis queue are chosen for the Phase 6 backend.
 
 ### Frontend Stack
 
