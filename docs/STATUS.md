@@ -89,6 +89,7 @@ Finalize and prepare deployment for the locally verified Workflow Router Lean MV
 - Added Watchlist and Compare persistence/API/frontend MVP paths, plus Dashboard right-side Copilot Panel.
 - Local verification passed: `351 passed, 9 warnings, 75 subtests passed`.
 - Verified Alembic migration chain through `20260615_0002_add_workflow_router_tables.py` with SQLite.
+- Updated Caddy production proxy rules for Phase 7 API prefixes: `/copilot/*`, `/watchlist*`, and `/compare*`.
 
 ## Completed
 

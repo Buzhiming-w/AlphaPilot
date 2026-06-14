@@ -17,6 +17,8 @@ def test_phase6_deployment_files_describe_single_server_stack():
     assert "Caddyfile" in compose
     assert "reverse_proxy api:8000" in caddyfile
     assert "file_server" in caddyfile
+    for api_prefix in ("/copilot/*", "/watchlist*", "/compare*"):
+        assert f"handle {api_prefix}" in caddyfile
 
 
 def test_production_env_example_has_required_keys_without_real_secrets():

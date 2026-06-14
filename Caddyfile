@@ -23,6 +23,18 @@
         reverse_proxy api:8000
     }
 
+    handle /copilot/* {
+        reverse_proxy api:8000
+    }
+
+    handle /watchlist* {
+        reverse_proxy api:8000
+    }
+
+    handle /compare* {
+        reverse_proxy api:8000
+    }
+
     handle /admin/* {
         reverse_proxy api:8000
     }

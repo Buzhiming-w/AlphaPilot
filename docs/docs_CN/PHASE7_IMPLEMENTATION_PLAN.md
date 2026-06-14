@@ -15,7 +15,7 @@
 ## 执行状态
 
 - Ticker Directory、Workflow Router、Watchlist、Compare 和前端 Copilot MVP 已在本地实现。
-- Phase 7 focused verification 已通过：`28 passed`。
+- Phase 7 focused verification 已通过：`30 passed`。
 - 本地全量验证已通过：`351 passed, 9 warnings, 75 subtests passed`。
 - 云部署仍待进行。
 

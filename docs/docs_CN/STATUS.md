@@ -90,6 +90,7 @@ Phase 7：Workflow Router Lean MVP
 - 新增 Watchlist 和 Compare 的持久化/API/前端 MVP 路径，并加入 Dashboard 右侧 Copilot Panel。
 - 本地验证通过：`351 passed, 9 warnings, 75 subtests passed`。
 - 已用 SQLite 验证 Alembic migration chain 可升级到 `20260615_0002_add_workflow_router_tables.py`。
+- 已更新 Caddy 生产代理规则，覆盖 Phase 7 API 前缀：`/copilot/*`、`/watchlist*` 和 `/compare*`。
 
 ## 已完成
 
