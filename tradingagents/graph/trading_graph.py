@@ -7,7 +7,10 @@ import json
 from datetime import datetime, timedelta
 from typing import Dict, Any, Tuple, List, Optional
 
-import yfinance as yf
+try:
+    import yfinance as yf
+except ModuleNotFoundError:  # pragma: no cover - depends on local environment
+    yf = None
 
 logger = logging.getLogger(__name__)
 
@@ -38,7 +41,8 @@ from tradingagents.agents.utils.agent_utils import (
     get_income_statement,
     get_news,
     get_insider_transactions,
-    get_global_news
+    get_global_news,
+    get_verified_market_snapshot,
 )
 
 from .checkpointer import checkpoint_step, clear_checkpoint, get_checkpointer, thread_id
@@ -162,6 +166,14 @@ class TradingAgentsGraph:
         if temperature is not None and temperature != "":
             kwargs["temperature"] = float(temperature)
 
+        timeout = self.config.get("timeout")
+        if timeout is not None and timeout != "":
+            kwargs["timeout"] = float(timeout)
+
+        max_retries = self.config.get("max_retries")
+        if max_retries is not None and max_retries != "":
+            kwargs["max_retries"] = int(max_retries)
+
         return kwargs
 
     def _create_tool_nodes(self) -> Dict[str, ToolNode]:
@@ -173,6 +185,8 @@ class TradingAgentsGraph:
                     get_stock_data,
                     # Technical indicators
                     get_indicators,
+                    # Verified OHLCV snapshot for exact price claims
+                    get_verified_market_snapshot,
                 ]
             ),
             "social": ToolNode(
@@ -232,6 +246,15 @@ class TradingAgentsGraph:
         actual_holding_days)`` or ``(None, None, None)`` if price data is
         unavailable (too recent, delisted, or network error).
         """
+        if yf is None:
+            logger.warning(
+                "Could not resolve outcome for %s on %s vs %s because yfinance is not installed",
+                ticker,
+                trade_date,
+                benchmark,
+            )
+            return None, None, None
+
         try:
             start = datetime.strptime(trade_date, "%Y-%m-%d")
             end = start + timedelta(days=holding_days + 7)  # buffer for weekends/holidays

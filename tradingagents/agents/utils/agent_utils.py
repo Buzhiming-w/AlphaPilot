@@ -2,7 +2,10 @@ import functools
 import logging
 from typing import Any, Mapping, Optional
 
-import yfinance as yf
+try:
+    import yfinance as yf
+except ModuleNotFoundError:  # pragma: no cover - depends on local environment
+    yf = None
 from langchain_core.messages import HumanMessage, RemoveMessage
 
 # Import tools from separate utility files
@@ -71,6 +74,10 @@ def resolve_instrument_identity(ticker: str) -> dict:
     ticker-only context rather than failing before analysis starts. Cached so
     the lookup happens at most once per ticker per process.
     """
+    if yf is None:
+        logger.debug("Could not resolve instrument identity for %s: yfinance is not installed", ticker)
+        return {}
+
     try:
         info = yf.Ticker(ticker.upper()).info or {}
     except Exception as exc:  # noqa: BLE001 — fail open, never block the run

@@ -1,0 +1,151 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>AlphaPilot Research Workspace</title>
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <div class="workspace-shell">
+      <aside class="sidebar">
+        <div class="brand-block">
+          <span class="brand-mark">AP</span>
+          <div>
+            <strong>AlphaPilot</strong>
+            <small>Agent research terminal</small>
+          </div>
+        </div>
+        <nav class="nav-stack" aria-label="Workspace views">
+          <button class="nav-item" data-target="auth">Login</button>
+          <button class="nav-item active" data-target="dashboard">Dashboard</button>
+          <button class="nav-item" data-target="new-analysis">New Analysis</button>
+          <button class="nav-item" data-target="analysis-detail">Report Detail</button>
+          <button class="nav-item" data-target="admin-users">Admin Users</button>
+          <button class="nav-item" data-target="public-demo">Public Demo</button>
+        </nav>
+        <div class="quota-card">
+          <span>Daily quota</span>
+          <strong id="quotaText">1 / 3</strong>
+          <div class="quota-bar"><span style="width: 33%"></span></div>
+        </div>
+      </aside>
+
+      <main class="workspace-main">
+        <header class="topbar">
+          <div>
+            <p class="eyebrow">OpenBB-inspired analyst workspace</p>
+            <h1>NVDA research run</h1>
+          </div>
+          <form class="command-bar" id="analysisForm">
+            <input id="tickerInput" aria-label="Ticker" value="NVDA" />
+            <input id="dateInput" aria-label="Trade date" type="date" value="2024-05-10" />
+            <button type="submit">Run analysis</button>
+          </form>
+        </header>
+
+        <section class="disclaimer" role="note">
+          AlphaPilot is for investment research assistance and demos only. It is not financial advice and does not execute trades.
+        </section>
+
+        <section class="view" data-view="auth">
+          <div class="auth-grid">
+            <form class="terminal-panel" id="loginForm">
+              <header><span>Login</span><strong>API</strong></header>
+              <label>Email<input name="email" type="email" value="admin@alphapilot.dev" /></label>
+              <label>Password<input name="password" type="password" value="admin" /></label>
+              <button type="submit">Login</button>
+            </form>
+            <form class="terminal-panel" id="registerForm">
+              <header><span>Register</span><strong>Quota 3/day</strong></header>
+              <label>Name<input name="display_name" value="Demo User" /></label>
+              <label>Email<input name="email" type="email" value="demo@example.com" /></label>
+              <label>Password<input name="password" type="password" value="pass-1234" /></label>
+              <button type="submit">Register</button>
+            </form>
+          </div>
+        </section>
+
+        <section class="view active" data-view="dashboard">
+          <div class="metric-strip">
+            <article>
+              <span>Decision</span>
+              <strong id="decisionMetric">Overweight</strong>
+            </article>
+            <article>
+              <span>Analysts</span>
+              <strong>Market</strong>
+            </article>
+            <article>
+              <span>Runtime</span>
+              <strong id="runtimeMetric">267s</strong>
+            </article>
+            <article>
+              <span>Provider</span>
+              <strong>DeepSeek</strong>
+            </article>
+          </div>
+          <div class="dashboard-grid">
+            <article class="terminal-panel">
+              <header><span>Agent Pipeline</span><strong>Completed</strong></header>
+              <ol class="pipeline-list">
+                <li class="done">Market analyst</li>
+                <li class="done">Bull/Bear debate</li>
+                <li class="done">Trader plan</li>
+                <li class="done">Risk committee</li>
+              </ol>
+            </article>
+            <article class="terminal-panel">
+              <header><span>Signal Summary</span><strong class="positive">Overweight</strong></header>
+              <p id="summaryText">The demo result is loaded from the saved Phase 1 smoke run, so visitors can inspect the product without consuming LLM quota.</p>
+              <p id="statusText" class="status-text">API not connected yet.</p>
+            </article>
+          </div>
+        </section>
+
+        <section class="view" data-view="new-analysis">
+          <div class="form-grid">
+            <label>Ticker<input value="AAPL" /></label>
+            <label>Trade date<input type="date" value="2024-05-10" /></label>
+            <label>Mode<select id="modeInput"><option value="demo">Demo</option><option value="live">Live</option></select></label>
+            <label>Analysts<select><option>Market only</option><option>Full team</option></select></label>
+          </div>
+        </section>
+
+        <section class="view" data-view="analysis-detail">
+          <div class="report-grid">
+            <article class="report-pane">
+              <header>Market Report</header>
+              <pre id="marketReport">Loading report...</pre>
+            </article>
+            <article class="report-pane">
+              <header>Final Decision</header>
+              <pre id="finalReport">Loading report...</pre>
+            </article>
+          </div>
+        </section>
+
+        <section class="view" data-view="admin-users">
+          <div class="table-panel">
+            <header><span>User controls</span><strong>Quota protected</strong></header>
+            <table>
+              <thead><tr><th>User</th><th>Role</th><th>Status</th><th>Daily limit</th></tr></thead>
+              <tbody>
+                <tr><td>admin@alphapilot.dev</td><td>Admin</td><td>Active</td><td>3</td></tr>
+                <tr><td>demo@example.com</td><td>User</td><td>Active</td><td>3</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+        <section class="view" data-view="public-demo">
+          <div class="terminal-panel">
+            <header><span>Public demo</span><strong>No quota used</strong></header>
+            <p>Saved NVDA analysis output is available for interviewers and public visitors without exposing server-side LLM keys.</p>
+          </div>
+        </section>
+      </main>
+    </div>
+    <script src="./app.js"></script>
+  </body>
+</html>

@@ -78,3 +78,25 @@ class TestProviderKwargsTemperature:
 
     def test_empty_string_omitted(self):
         assert "temperature" not in self._kwargs_for("")
+
+
+@pytest.mark.unit
+class TestProviderKwargsRuntimeLimits:
+    """Runtime limits are forwarded only when explicitly configured."""
+
+    def _kwargs_for(self, **config):
+        from tradingagents.graph.trading_graph import TradingAgentsGraph
+        graph = TradingAgentsGraph.__new__(TradingAgentsGraph)
+        graph.config = {"llm_provider": "deepseek", **config}
+        return TradingAgentsGraph._get_provider_kwargs(graph)
+
+    def test_timeout_forwarded_as_float(self):
+        assert self._kwargs_for(timeout="30")["timeout"] == 30.0
+
+    def test_max_retries_forwarded_as_int(self):
+        assert self._kwargs_for(max_retries="0")["max_retries"] == 0
+
+    def test_empty_values_omitted(self):
+        kwargs = self._kwargs_for(timeout="", max_retries="")
+        assert "timeout" not in kwargs
+        assert "max_retries" not in kwargs
