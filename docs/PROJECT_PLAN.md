@@ -1,6 +1,6 @@
 # AlphaPilot Project Plan
 
-Last updated: 2026-06-14
+Last updated: 2026-06-15
 
 ## Goal
 
@@ -215,7 +215,7 @@ Can be parallelized with:
 
 Objective: put the app online in a controlled, low-cost, low-abuse way.
 
-Status: Basic implementation complete; real server deployment pending user-provided server details
+Status: Baseline deployment complete
 
 Design:
 - Target platform: one 2 vCPU / 2 GB Alibaba Cloud lightweight application server.
@@ -253,11 +253,70 @@ Completion criteria:
 - Only permitted users can consume LLM-backed analysis.
 - Production secrets are not committed.
 - Deployment can be reproduced on a 2 vCPU / 2 GB Alibaba Cloud lightweight server after the operator provides server IP, SSH access, DNS/domain, and secret values.
+- Public `/`, `/health`, and `/demo/reference` return HTTP 200.
 
 Dependencies:
 - Phase 4 and Phase 5.
 
-## Phase 7: Portfolio Polish
+## Phase 7: Workflow Router Lean MVP
+
+Objective: turn the Dashboard into a natural-language research workspace that routes logged-in users into Watchlist, Multi-Stock Compare, or Single Stock Analysis workflows.
+
+Status: Design approved; written design pending user review
+
+Design:
+- Add a right-side Dashboard Copilot Panel for logged-in users only.
+- Parse natural-language requests into a draft workflow.
+- Support first-version intents:
+  - `add_to_watchlist`
+  - `single_analysis`
+  - `multi_compare`
+  - `clarify`
+  - `unsupported`
+- Resolve tickers with a hybrid strategy:
+  - local US equity directory first;
+  - AI fallback when local confidence is low;
+  - future external search provider behind an interface.
+- Support US equities first while preserving `market`, `exchange`, and `currency` fields for future market expansion.
+- Parse natural-language dates and ranges; save `start_date` and `end_date`, but use `end_date` as the first-version TradingAgents analysis anchor.
+- Require user confirmation before creating watchlist items, compare workflows, or analysis jobs.
+
+Tasks:
+- [x] Choose Lean MVP scope over full workflow platform scope.
+- [x] Choose logged-in-only Copilot access.
+- [x] Choose US-first implementation with multi-market data fields.
+- [x] Choose hybrid ticker resolution.
+- [x] Choose date-range storage with `end_date` analysis anchor.
+- [x] Write `docs/WORKFLOW_ROUTER_MVP.md` and Chinese mirror.
+- [ ] Write detailed implementation plan.
+- [ ] Add ticker directory and resolver tests.
+- [ ] Add workflow router tests and implementation.
+- [ ] Add Watchlist persistence, API, tests, and frontend view.
+- [ ] Add Compare persistence, API, tests, and frontend view.
+- [ ] Add right-side Dashboard Copilot Panel.
+- [ ] Verify guest access is blocked for Copilot, Watchlist, and Compare.
+- [ ] Verify local tests before cloud deployment.
+- [ ] Deploy Phase 7 to Alibaba Cloud demo after local verification.
+
+Completion criteria:
+- A logged-in user can type a natural-language request and receive a structured draft workflow.
+- The router can identify common US tickers, company names, aliases, Chinese names, and person-based examples.
+- The user can confirm candidates and create Watchlist, Compare, or Single Analysis workflows.
+- Watchlist items persist after reload.
+- Compare workflows persist confirmed tickers and date ranges.
+- Dashboard contains a right-side Copilot Panel without breaking existing analysis workflows.
+- Tests cover router, watchlist, compare, permission, and frontend structure paths.
+
+Dependencies:
+- Phase 4 backend API/auth/quota.
+- Phase 5 dashboard frontend.
+- Phase 6 PostgreSQL/Redis deployment foundation.
+
+Can be parallelized with:
+- Documentation polish.
+- Domain/HTTPS deployment hardening after the local implementation is stable.
+
+## Phase 8: Portfolio Polish
 
 Objective: turn AlphaPilot into a strong resume and interview project.
 
@@ -292,7 +351,9 @@ Dependencies:
 
 These should wait until the MVP is working:
 
-- [ ] Watchlist.
+- [x] Watchlist promoted into Phase 7.
+- [ ] Full persistent chat history.
+- [ ] Dedicated compare-specific multi-agent reasoning.
 - [ ] Saved portfolios.
 - [ ] Analysis comparison across dates.
 - [ ] Cost and token usage dashboard.

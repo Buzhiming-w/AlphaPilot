@@ -1,6 +1,6 @@
 # AlphaPilot 技术决策
 
-最后更新：2026-06-14
+最后更新：2026-06-15
 
 本文档记录重要技术和产品决策，使项目随着时间推进仍然可理解。
 
@@ -190,6 +190,28 @@
 - API 为 live analysis 创建 queued job 并立即返回。
 - Worker process 负责 live engine execution 和 failure logging。
 - 测试应覆盖 disabled users、quota exhausted、queued job creation、worker completion/failure 和 rate-limit rejection。
+
+### 2026-06-15：以 Lean MVP 方式构建 Workflow Router
+
+决策：
+- Phase 7 会以 Lean MVP 方式实现 Workflow Router，而不是一次性构建完整 workflow platform。
+- 第一版会在 Dashboard 右侧加入仅登录用户可用的 Copilot Panel。
+- Copilot 会将自然语言请求解析为 draft workflows，并在执行前要求用户确认。
+- 第一版 workflows 包括 Watchlist、Multi-Stock Compare 和 Single Stock Analysis。
+- 第一版实际支持美股，但 schema 和 API 形状会保留 `market`、`exchange`、`currency` 字段，方便未来扩展。
+- Ticker resolution 使用混合策略：先查本地美股目录，其次使用 AI fallback，未来外部搜索 provider 放在接口后面。
+- 自然语言时间段会被解析和保存，但现有 TradingAgents 分析第一版仍使用 `end_date` 作为 as-of date。
+
+原因：
+- 当前已部署产品是可用的单股分析 demo；下一步最高价值是将其升级为研究工作台。
+- Lean MVP 可以更快跑通完整用户旅程：自然语言请求、候选确认、workflow 创建。
+- 立即构建完整 compare agent、持久化聊天系统和高级区间分析，会带来过大的产品和实现风险。
+
+影响：
+- 实现时应优先保证 router 行为 deterministic 且可测试，而不是追求开放式聊天。
+- Watchlist 和 Compare 应从简单持久化和并列展示单股分析输出开始。
+- 完整持久化聊天历史、真实区间分析、专用 compare agent 推理、提醒、分组和多市场执行不属于 Phase 7 范围。
+- 后续实现工作应从 `docs/WORKFLOW_ROUTER_MVP.md` 开始。
 
 ## 已提出但尚未最终确定
 

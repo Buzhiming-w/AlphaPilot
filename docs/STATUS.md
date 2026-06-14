@@ -1,27 +1,28 @@
 # AlphaPilot Status
 
-Last updated: 2026-06-14
+Last updated: 2026-06-15
 
 ## Current Phase
 
-Phase 6: Deployment And Safety
+Phase 7: Workflow Router Lean MVP
 
 ## Current Task
 
-Phase 6 baseline deployment is live on the Alibaba Cloud lightweight server. The current public demo is IP-only HTTP while the project has no domain name.
+Design and implement the Workflow Router Lean MVP: a logged-in Dashboard Copilot that turns natural-language requests into confirmed Watchlist, Multi-Stock Compare, or Single Stock Analysis workflows.
 
 ## Next Steps
 
-1. Add a domain name and switch `ALPHAPILOT_PUBLIC_HOST` from `:80` to the hostname so Caddy can manage HTTPS.
-2. Add browser screenshot verification for the public deployment.
-3. Decide whether public registration should remain open or become admin-controlled.
-4. Add backup/restore documentation for PostgreSQL and server recovery.
-5. Continue post-Phase-6 hardening: observability, log rotation, and live job smoke testing.
+1. Review `docs/WORKFLOW_ROUTER_MVP.md` and its Chinese mirror.
+2. Create an implementation plan for ticker resolution, workflow routing, Watchlist, Compare, and Dashboard Copilot UI.
+3. Implement locally with tests first.
+4. Deploy to the Alibaba Cloud demo only after local verification passes.
+5. Continue post-Phase-6 hardening after the Workflow Router MVP lands.
 
 ## Current Blockers
 
 - No domain name yet, so the first deployment is HTTP-only at the server IP.
 - Browser screenshot verification is still pending.
+- Workflow Router implementation should not begin until the written design is reviewed.
 
 ## Important Context
 
@@ -38,6 +39,8 @@ Phase 6 baseline deployment is live on the Alibaba Cloud lightweight server. The
 - Server region: Alibaba Cloud Malaysia (Kuala Lumpur), Ubuntu 22.04.
 - Server path: `/opt/AlphaPilot`
 - Admin credentials were rotated away from the local default. The server-only credentials file is `/root/alphapilot_admin_credentials.txt`.
+- Workflow Router Lean MVP design source: `docs/WORKFLOW_ROUTER_MVP.md`.
+- Workflow Router constraints: logged-in users only, US equities first, hybrid ticker resolution, user confirmation before workflow execution, and date ranges stored while first analysis remains anchored on `end_date`.
 
 ## Recent Notes
 
@@ -80,6 +83,8 @@ Phase 6 baseline deployment is live on the Alibaba Cloud lightweight server. The
 - Verified public deployment: `/`, `/health`, and `/demo/reference` return HTTP 200 from `http://47.250.149.226`.
 - Verified safety: default `admin` password returns HTTP 401, while the server-only random admin password returns HTTP 200.
 - Latest full local test run in the `AlphaPilot` conda environment: `336 passed, 75 subtests passed`.
+- Planned Phase 7 Workflow Router Lean MVP: right-side Dashboard Copilot, natural-language intent routing, local-first ticker directory with AI fallback, Watchlist basics, and lightweight Multi-Stock Compare.
+- Added `docs/WORKFLOW_ROUTER_MVP.md` and Chinese mirror under `docs/docs_CN/`.
 
 ## Completed
 
@@ -106,7 +111,7 @@ Phase 6 baseline deployment is live on the Alibaba Cloud lightweight server. The
 
 ## In Progress
 
-- [ ] Add domain/HTTPS and browser screenshot verification.
+- [ ] Phase 7 Workflow Router Lean MVP design review.
 
 ## Pending
 
@@ -116,3 +121,4 @@ Phase 6 baseline deployment is live on the Alibaba Cloud lightweight server. The
 - [x] Build backend API and permissions.
 - [x] Build frontend product UI.
 - [x] Deploy controlled public demo.
+- [ ] Add domain/HTTPS and browser screenshot verification.

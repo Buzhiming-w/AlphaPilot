@@ -1,27 +1,28 @@
 # AlphaPilot 当前状态
 
-最后更新：2026-06-14
+最后更新：2026-06-15
 
 ## 当前阶段
 
-Phase 6：部署与安全
+Phase 7：Workflow Router Lean MVP
 
 ## 当前任务
 
-Phase 6 基线部署已上线到阿里云轻量应用服务器。当前项目还没有域名，所以第一版公开 demo 使用 IP-only HTTP。
+设计并实现 Workflow Router Lean MVP：在登录后的 Dashboard 中加入 Copilot，将自然语言请求转换为已确认的 Watchlist、Multi-Stock Compare 或 Single Stock Analysis workflow。
 
 ## 下一步
 
-1. 添加域名，并将 `ALPHAPILOT_PUBLIC_HOST` 从 `:80` 切换为 hostname，让 Caddy 管理 HTTPS。
-2. 为公网部署补充 browser screenshot verification。
-3. 决定 public registration 是否继续开放，还是改为 admin-controlled。
-4. 补充 PostgreSQL backup/restore 和服务器恢复文档。
-5. 继续 Phase 6 之后的 hardening：observability、log rotation 和 live job smoke testing。
+1. 审阅 `docs/WORKFLOW_ROUTER_MVP.md` 及中文镜像。
+2. 为 ticker resolution、workflow routing、Watchlist、Compare 和 Dashboard Copilot UI 创建实现计划。
+3. 先在本地按测试优先方式实现。
+4. 本地验证通过后，再部署到阿里云 demo。
+5. Workflow Router MVP 落地后，继续 Phase 6 之后的 hardening。
 
 ## 当前阻塞
 
 - 暂无域名，所以第一版部署只能通过服务器 IP 使用 HTTP。
 - 浏览器截图验证仍待补充。
+- Written design 审阅完成前，不应开始 Workflow Router 实现。
 
 ## 重要上下文
 
@@ -39,6 +40,8 @@ Phase 6 基线部署已上线到阿里云轻量应用服务器。当前项目还
 - 服务器地域：阿里云马来西亚（吉隆坡），Ubuntu 22.04。
 - 服务器路径：`/opt/AlphaPilot`
 - 管理员凭据已从本地默认值轮换为服务器专用随机值。服务器上的 root-only 凭据文件是 `/root/alphapilot_admin_credentials.txt`。
+- Workflow Router Lean MVP 设计源文档：`docs/WORKFLOW_ROUTER_MVP.md`。
+- Workflow Router 约束：仅登录用户可用、第一版实际支持美股、混合 ticker 识别、执行 workflow 前必须用户确认，并保存时间段但第一版分析仍以 `end_date` 为基准。
 
 ## 最近记录
 
@@ -81,6 +84,8 @@ Phase 6 基线部署已上线到阿里云轻量应用服务器。当前项目还
 - 已验证公网部署：`http://47.250.149.226` 的 `/`、`/health`、`/demo/reference` 均返回 HTTP 200。
 - 已验证安全项：默认 `admin` 密码返回 HTTP 401，服务器专用随机管理员密码返回 HTTP 200。
 - 最近一次在 `AlphaPilot` conda 环境运行全量测试：`336 passed, 75 subtests passed`。
+- 已规划 Phase 7 Workflow Router Lean MVP：右侧 Dashboard Copilot、自然语言意图路由、本地优先 ticker directory + AI fallback、Watchlist 基础能力和轻量 Multi-Stock Compare。
+- 新增 `docs/WORKFLOW_ROUTER_MVP.md` 及 `docs/docs_CN/` 下的中文镜像。
 
 ## 已完成
 
@@ -107,7 +112,7 @@ Phase 6 基线部署已上线到阿里云轻量应用服务器。当前项目还
 
 ## 进行中
 
-- [ ] 添加域名/HTTPS 和浏览器截图验证。
+- [ ] Phase 7 Workflow Router Lean MVP 设计审阅。
 
 ## 待办
 
@@ -117,3 +122,4 @@ Phase 6 基线部署已上线到阿里云轻量应用服务器。当前项目还
 - [x] 构建后端 API 和权限系统。
 - [x] 构建前端产品 UI。
 - [x] 部署可控的公开 demo。
+- [ ] 添加域名/HTTPS 和浏览器截图验证。

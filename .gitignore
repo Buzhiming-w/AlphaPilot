@@ -218,6 +218,13 @@ __marimo__/
 
 # Cache
 **/data_cache/
+
+# Local OS/editor artifacts
+.DS_Store
+**/.DS_Store
+
+# Superpowers visual brainstorming scratch files
+.superpowers/
 .alphapilot_runtime/
 
 # Enterprise env file (secrets) and generated run reports

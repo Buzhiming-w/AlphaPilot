@@ -1,6 +1,6 @@
 # AlphaPilot 项目计划
 
-最后更新：2026-06-14
+最后更新：2026-06-15
 
 ## 目标
 
@@ -214,7 +214,7 @@ AlphaPilot 只用于投资研究辅助、面试展示和作品集展示。它不
 
 目标：以低成本、可控、防滥用的方式把应用上线。
 
-状态：基础实现已完成；真实服务器部署等待用户提供服务器信息
+状态：基线部署已完成
 
 设计：
 - 目标平台：一台 2 vCPU / 2 GB 阿里云轻量应用服务器。
@@ -252,11 +252,70 @@ AlphaPilot 只用于投资研究辅助、面试展示和作品集展示。它不
 - 只有被允许的用户可以消耗 LLM-backed analysis。
 - 生产 secrets 未被提交到仓库。
 - 在操作者提供服务器 IP、SSH access、DNS/domain 和 secret values 之后，可以在 2 vCPU / 2 GB 阿里云轻量服务器上复现部署。
+- 公网 `/`、`/health` 和 `/demo/reference` 返回 HTTP 200。
 
 依赖：
 - Phase 4 和 Phase 5。
 
-## Phase 7：作品集打磨
+## Phase 7：Workflow Router Lean MVP
+
+目标：将 Dashboard 升级为自然语言研究工作台，让登录用户通过 Copilot 进入 Watchlist、Multi-Stock Compare 或 Single Stock Analysis workflow。
+
+状态：设计已确认；书面设计待用户审阅
+
+设计：
+- 在 Dashboard 右侧加入仅登录用户可用的 Copilot Panel。
+- 将自然语言请求解析为 draft workflow。
+- 第一版支持意图：
+  - `add_to_watchlist`
+  - `single_analysis`
+  - `multi_compare`
+  - `clarify`
+  - `unsupported`
+- 使用混合 ticker 识别策略：
+  - 先查本地美股目录；
+  - 本地置信度低时使用 AI fallback；
+  - 未来外部搜索 provider 放在接口后面。
+- 第一版实际支持美股，同时保留 `market`、`exchange`、`currency` 字段，方便未来扩展市场。
+- 解析自然语言日期和时间段；保存 `start_date` 和 `end_date`，但第一版 TradingAgents 分析仍以 `end_date` 为基准。
+- 创建 watchlist items、compare workflows 或 analysis jobs 前必须经过用户确认。
+
+任务：
+- [x] 选择 Lean MVP 范围，而不是一次性做完整 workflow platform。
+- [x] 选择 Copilot 仅登录用户可用。
+- [x] 选择美股优先实现，同时保留多市场字段。
+- [x] 选择混合 ticker resolution。
+- [x] 选择保存时间段，但以 `end_date` 作为分析基准。
+- [x] 编写 `docs/WORKFLOW_ROUTER_MVP.md` 和中文镜像。
+- [ ] 编写详细实现计划。
+- [ ] 添加 ticker directory 和 resolver 测试。
+- [ ] 添加 workflow router 测试和实现。
+- [ ] 添加 Watchlist 持久化、API、测试和前端视图。
+- [ ] 添加 Compare 持久化、API、测试和前端视图。
+- [ ] 添加 Dashboard 右侧 Copilot Panel。
+- [ ] 验证访客无法访问 Copilot、Watchlist 和 Compare。
+- [ ] 云部署前先完成本地测试验证。
+- [ ] 本地验证通过后，将 Phase 7 部署到阿里云 demo。
+
+完成标准：
+- 登录用户可以输入自然语言请求，并收到结构化 draft workflow。
+- Router 能识别常见美股 ticker、公司名、别名、中文名和人物线索。
+- 用户可以确认候选项，并创建 Watchlist、Compare 或 Single Analysis workflows。
+- Watchlist items 刷新后仍持久化可见。
+- Compare workflows 能持久化确认后的 tickers 和时间段。
+- Dashboard 包含右侧 Copilot Panel，且不破坏现有分析 workflow。
+- 测试覆盖 router、watchlist、compare、permission 和 frontend structure 路径。
+
+依赖：
+- Phase 4 后端 API/auth/quota。
+- Phase 5 dashboard frontend。
+- Phase 6 PostgreSQL/Redis 部署基础。
+
+可并行：
+- 文档打磨。
+- 本地实现稳定后，继续域名/HTTPS 部署加固。
+
+## Phase 8：作品集打磨
 
 目标：把 AlphaPilot 打造成一个有说服力的简历和面试项目。
 
@@ -291,7 +350,9 @@ AlphaPilot 只用于投资研究辅助、面试展示和作品集展示。它不
 
 这些应该等 MVP 正常工作后再做：
 
-- [ ] Watchlist。
+- [x] Watchlist 已提升到 Phase 7。
+- [ ] 完整持久化聊天历史。
+- [ ] 专用 compare 多 agent 推理。
 - [ ] Saved portfolios。
 - [ ] 跨日期分析对比。
 - [ ] 成本和 token 使用量 dashboard。

@@ -1,6 +1,6 @@
 # AlphaPilot Decisions
 
-Last updated: 2026-06-14
+Last updated: 2026-06-15
 
 This document records important technical and product decisions so the project stays understandable over time.
 
@@ -190,6 +190,28 @@ Consequences:
 - The API creates queued jobs and returns immediately for live analysis.
 - A worker process owns live engine execution and failure logging.
 - Tests should cover disabled users, quota exhaustion, queued job creation, worker completion/failure, and rate-limit rejection.
+
+### 2026-06-15: Build Workflow Router As A Lean MVP
+
+Decision:
+- Phase 7 will implement the Workflow Router as a Lean MVP rather than a full workflow platform.
+- The first version will add a logged-in-only right-side Dashboard Copilot Panel.
+- The Copilot will parse natural-language requests into draft workflows and require user confirmation before execution.
+- First-version workflows are Watchlist, Multi-Stock Compare, and Single Stock Analysis.
+- First-version market support is US equities only, while schema and API shapes preserve `market`, `exchange`, and `currency` fields for future expansion.
+- Ticker resolution will use a hybrid strategy: local US equity directory first, AI fallback second, and future external search behind an interface.
+- Natural-language date ranges will be parsed and stored, but the existing TradingAgents analysis will continue using `end_date` as the first-version as-of date.
+
+Reasoning:
+- The current deployed product is a working single-stock analysis demo; the next highest-value step is turning it into a research workspace.
+- A Lean MVP gets the full user journey working sooner: natural-language request, candidate confirmation, and workflow creation.
+- Building a full compare-specific agent, persistent chat system, and advanced range analytics immediately would create too much product and implementation risk.
+
+Consequences:
+- Implementation must prioritize deterministic, testable router behavior before open-ended chat behavior.
+- Watchlist and Compare should start with simple persistence and side-by-side single-stock analysis outputs.
+- Full persistent chat history, true range analytics, dedicated compare-agent reasoning, alerts, grouping, and multi-market execution remain out of scope for Phase 7.
+- Future implementation work should start from `docs/WORKFLOW_ROUTER_MVP.md`.
 
 ## Proposed But Not Final
 
