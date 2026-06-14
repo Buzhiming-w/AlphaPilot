@@ -11,7 +11,7 @@ The first production deployment targets one Alibaba Cloud lightweight applicatio
 - Ubuntu LTS
 - Docker Engine and Docker Compose plugin
 - One public IPv4 address
-- Optional domain name pointed to the server
+- Optional domain name pointed to the server. IP-only HTTP is supported for the first demo.
 
 This is a controlled demo deployment, not a high-traffic production cluster.
 
@@ -54,7 +54,13 @@ Codex should pause and ask the user for these values before real server deployme
 - Production `.env` values, including `DEEPSEEK_API_KEY`.
 - Whether to open public registration or require admin-controlled activation.
 
-Current status: deployment code and docs are ready, but real deployment is paused until these values are available.
+Current server for the first controlled demo:
+
+- Public IP: `47.250.149.226`
+- Region: Alibaba Cloud Malaysia (Kuala Lumpur)
+- OS: Ubuntu 22.04
+- SSH user: `root`
+- Domain: none yet; use IP-only HTTP with `ALPHAPILOT_PUBLIC_HOST=:80`
 
 ## Production Environment
 
@@ -67,7 +73,7 @@ ALPHAPILOT_DATABASE_URL=postgresql+psycopg://alphapilot:<password>@postgres:5432
 ALPHAPILOT_REDIS_URL=redis://redis:6379/0
 ALPHAPILOT_QUEUE_BACKEND=redis
 ALPHAPILOT_RATE_LIMIT_ENABLED=true
-ALPHAPILOT_PUBLIC_ORIGIN=https://your-domain.example
+ALPHAPILOT_PUBLIC_HOST=:80
 DEEPSEEK_API_KEY=<server-only-secret>
 TRADINGAGENTS_LLM_PROVIDER=deepseek
 TRADINGAGENTS_QUICK_THINK_LLM=deepseek-v4-flash
@@ -76,6 +82,8 @@ TRADINGAGENTS_MAX_DEBATE_ROUNDS=1
 TRADINGAGENTS_MAX_RISK_ROUNDS=1
 ```
 
+When a domain is added later, change `ALPHAPILOT_PUBLIC_HOST` from `:80` to the hostname, for example `your-domain.example`. Caddy can then request HTTPS certificates automatically if ports 80 and 443 are open and DNS points to the server.
+
 ## Deployment Steps
 
 1. Buy the Alibaba Cloud lightweight application server.
@@ -83,7 +91,7 @@ TRADINGAGENTS_MAX_RISK_ROUNDS=1
 3. Clone the AlphaPilot repository on the server.
 4. Create `.env.production` from `.env.production.example`.
 5. Fill production secrets and database passwords.
-6. Point the domain DNS A record to the server IP, if using a domain.
+6. Point the domain DNS A record to the server IP, if using a domain. Skip this for IP-only HTTP.
 7. Run database migrations.
 8. Start the Compose deployment.
 9. Verify `/health`, `/demo/reference`, login, admin controls, and disabled-user blocking.
@@ -104,7 +112,7 @@ curl http://127.0.0.1/health
 curl http://127.0.0.1/demo/reference
 ```
 
-Remote commands and DNS-specific checks will be finalized once the server IP, domain, and SSH details are available.
+For the current IP-only deployment, public checks should use `http://47.250.149.226/health` and `http://47.250.149.226/demo/reference`.
 
 ## Safety Checks
 

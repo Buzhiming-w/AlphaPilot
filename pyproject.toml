@@ -45,6 +45,7 @@ tradingagents = "cli.main:app"
 include = ["tradingagents*", "cli*", "alphapilot*"]
 
 [tool.setuptools.package-data]
+alphapilot = ["backend/demo_data/*.json"]
 cli = ["static/*"]
 
 [tool.pytest.ini_options]

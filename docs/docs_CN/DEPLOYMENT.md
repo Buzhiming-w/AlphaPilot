@@ -11,7 +11,7 @@
 - Ubuntu LTS
 - Docker Engine 和 Docker Compose plugin
 - 一个公网 IPv4 地址
-- 可选：解析到服务器的域名
+- 可选：解析到服务器的域名。第一版 demo 支持无域名的 IP-only HTTP。
 
 这是一个可控 demo 部署，不是高流量生产集群。
 
@@ -54,7 +54,13 @@ Worker
 - 生产 `.env` 值，包括 `DEEPSEEK_API_KEY`。
 - 是否开放 public registration，还是要求 admin-controlled activation。
 
-当前状态：部署代码和文档已准备好，但真实部署暂停，等待这些值。
+当前第一版可控 demo 服务器：
+
+- 公网 IP：`47.250.149.226`
+- 地域：阿里云马来西亚（吉隆坡）
+- 系统：Ubuntu 22.04
+- SSH 用户：`root`
+- 域名：暂无；使用 IP-only HTTP，并设置 `ALPHAPILOT_PUBLIC_HOST=:80`
 
 ## 生产环境变量
 
@@ -67,7 +73,7 @@ ALPHAPILOT_DATABASE_URL=postgresql+psycopg://alphapilot:<password>@postgres:5432
 ALPHAPILOT_REDIS_URL=redis://redis:6379/0
 ALPHAPILOT_QUEUE_BACKEND=redis
 ALPHAPILOT_RATE_LIMIT_ENABLED=true
-ALPHAPILOT_PUBLIC_ORIGIN=https://your-domain.example
+ALPHAPILOT_PUBLIC_HOST=:80
 DEEPSEEK_API_KEY=<server-only-secret>
 TRADINGAGENTS_LLM_PROVIDER=deepseek
 TRADINGAGENTS_QUICK_THINK_LLM=deepseek-v4-flash
@@ -76,6 +82,8 @@ TRADINGAGENTS_MAX_DEBATE_ROUNDS=1
 TRADINGAGENTS_MAX_RISK_ROUNDS=1
 ```
 
+后续添加域名时，将 `ALPHAPILOT_PUBLIC_HOST` 从 `:80` 改为 hostname，例如 `your-domain.example`。如果 80 和 443 端口开放，并且 DNS 指向服务器，Caddy 可以自动申请 HTTPS 证书。
+
 ## 部署步骤
 
 1. 购买阿里云轻量应用服务器。
@@ -83,7 +91,7 @@ TRADINGAGENTS_MAX_RISK_ROUNDS=1
 3. 在服务器上 clone AlphaPilot 仓库。
 4. 基于 `.env.production.example` 创建 `.env.production`。
 5. 填写生产 secrets 和数据库密码。
-6. 如果使用域名，将 DNS A record 指向服务器 IP。
+6. 如果使用域名，将 DNS A record 指向服务器 IP。IP-only HTTP 可以跳过这一步。
 7. 运行数据库迁移。
 8. 启动 Compose deployment。
 9. 验证 `/health`、`/demo/reference`、login、admin controls 和 disabled-user blocking。
@@ -104,7 +112,7 @@ curl http://127.0.0.1/health
 curl http://127.0.0.1/demo/reference
 ```
 
-远程命令和 DNS 相关检查会在服务器 IP、域名和 SSH 信息可用后最终确定。
+当前 IP-only 部署的公网检查地址是 `http://47.250.149.226/health` 和 `http://47.250.149.226/demo/reference`。
 
 ## 安全检查
 

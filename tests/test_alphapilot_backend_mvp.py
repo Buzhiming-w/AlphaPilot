@@ -2,7 +2,7 @@ from fastapi.testclient import TestClient
 import pytest
 
 from alphapilot.backend.app import create_app
-from alphapilot.backend.result_normalizer import normalize_engine_state
+from alphapilot.backend.result_normalizer import load_demo_result, normalize_engine_state
 from alphapilot.backend.store import AlphaPilotStore
 
 
@@ -73,6 +73,17 @@ def test_public_demo_reference_does_not_require_auth_or_consume_quota(client):
     assert payload["decision"] == "Overweight"
     assert payload["ticker"] == "NVDA"
     assert "final" in payload["sections"]
+
+
+@pytest.mark.unit
+def test_load_demo_result_uses_packaged_fixture_outside_runtime_workdir(monkeypatch, tmp_path):
+    monkeypatch.chdir(tmp_path)
+
+    normalized, raw_state = load_demo_result()
+
+    assert normalized["decision"] == "Overweight"
+    assert normalized["ticker"] == "NVDA"
+    assert raw_state["company_of_interest"] == "NVDA"
 
 
 @pytest.mark.unit

@@ -2,8 +2,10 @@ from __future__ import annotations
 
 import pytest
 from fastapi.testclient import TestClient
+from redis.exceptions import TimeoutError as RedisTimeoutError
 
 from alphapilot.backend.app import create_app
+from alphapilot.backend.queue import RedisAnalysisQueue
 from alphapilot.backend.rate_limit import InMemoryRateLimiter
 from alphapilot.backend.store import AlphaPilotStore
 from alphapilot.backend.worker import process_analysis_job
@@ -15,6 +17,11 @@ class SpyQueue:
 
     def enqueue(self, job_id: str) -> None:
         self.enqueued.append(job_id)
+
+
+class TimeoutRedisClient:
+    def blpop(self, *_args, **_kwargs):
+        raise RedisTimeoutError("Timeout reading from socket")
 
 
 class ExplodingLiveEngine:
@@ -109,6 +116,15 @@ def test_worker_marks_live_job_failed_and_records_failure_log():
     assert failed.result_id is None
     assert usage_logs[-1].user_id == user.id
     assert usage_logs[-1].endpoint == "analysis.worker.failed"
+
+
+@pytest.mark.unit
+def test_redis_queue_dequeue_treats_timeout_as_empty_queue():
+    queue = RedisAnalysisQueue.__new__(RedisAnalysisQueue)
+    queue.client = TimeoutRedisClient()
+    queue.queue_name = "alphapilot:analysis_jobs"
+
+    assert queue.dequeue(timeout_seconds=1) is None
 
 
 @pytest.mark.unit

@@ -4,6 +4,7 @@ from dataclasses import dataclass, field
 from typing import Protocol
 
 from redis import Redis
+from redis.exceptions import TimeoutError as RedisTimeoutError
 
 
 class AnalysisQueue(Protocol):
@@ -28,5 +29,8 @@ class RedisAnalysisQueue:
         self.client.rpush(self.queue_name, job_id)
 
     def dequeue(self, *, timeout_seconds: int = 5) -> str | None:
-        item = self.client.blpop(self.queue_name, timeout=timeout_seconds)
+        try:
+            item = self.client.blpop(self.queue_name, timeout=timeout_seconds)
+        except RedisTimeoutError:
+            return None
         return item[1] if item else None
