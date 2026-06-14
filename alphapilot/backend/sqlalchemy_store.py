@@ -13,13 +13,25 @@ from .db_models import (
     AnalysisResultRecord,
     ApiUsageLogRecord,
     Base,
+    CompareWorkflowRecord,
+    CompareWorkflowSymbolRecord,
     UserQuotaRecord,
     UserRecord,
     UserTokenRecord,
+    WatchlistItemRecord,
 )
 from .security import hash_password, new_token, verify_password
 from .settings import get_admin_email, get_admin_password, is_admin_password_configured
-from .store import AnalysisJob, AnalysisResult, ApiUsageLog, User, UserQuota
+from .store import (
+    AnalysisJob,
+    AnalysisResult,
+    ApiUsageLog,
+    CompareWorkflow,
+    CompareWorkflowSymbol,
+    User,
+    UserQuota,
+    WatchlistItem,
+)
 
 
 class SqlAlchemyAlphaPilotStore:
@@ -262,6 +274,118 @@ class SqlAlchemyAlphaPilotStore:
             records = session.scalars(select(ApiUsageLogRecord).order_by(ApiUsageLogRecord.created_at.asc()))
             return [self._to_usage_log(record) for record in records]
 
+    def create_watchlist_item(
+        self,
+        *,
+        user_id: str,
+        ticker: str,
+        company_name: str,
+        market: str,
+        exchange: str,
+        currency: str,
+        note: str | None = None,
+        source: str = "manual",
+        last_analysis_job_id: str | None = None,
+    ) -> WatchlistItem:
+        with self.session_factory() as session:
+            record = WatchlistItemRecord(
+                id=str(uuid4()),
+                user_id=user_id,
+                ticker=ticker.strip().upper(),
+                company_name=company_name,
+                market=market,
+                exchange=exchange,
+                currency=currency,
+                note=note,
+                source=source,
+                last_analysis_job_id=last_analysis_job_id,
+            )
+            session.add(record)
+            session.commit()
+            return self._to_watchlist_item(record)
+
+    def list_watchlist_items(self, user_id: str) -> list[WatchlistItem]:
+        with self.session_factory() as session:
+            records = session.scalars(
+                select(WatchlistItemRecord)
+                .where(WatchlistItemRecord.user_id == user_id)
+                .order_by(WatchlistItemRecord.created_at.desc())
+            )
+            return [self._to_watchlist_item(record) for record in records]
+
+    def delete_watchlist_item(self, user_id: str, item_id: str) -> bool:
+        with self.session_factory() as session:
+            record = session.scalar(
+                select(WatchlistItemRecord).where(
+                    WatchlistItemRecord.id == item_id,
+                    WatchlistItemRecord.user_id == user_id,
+                )
+            )
+            if not record:
+                raise KeyError(item_id)
+            session.delete(record)
+            session.commit()
+            return True
+
+    def create_compare_workflow(
+        self,
+        *,
+        user_id: str,
+        symbols: list[dict[str, str]],
+        start_date: str | None,
+        end_date: str | None,
+        analysis_anchor: str | None,
+        source: str = "manual",
+        status: str = "draft",
+    ) -> CompareWorkflow:
+        with self.session_factory() as session:
+            workflow = CompareWorkflowRecord(
+                id=str(uuid4()),
+                user_id=user_id,
+                start_date=start_date,
+                end_date=end_date,
+                analysis_anchor=analysis_anchor,
+                source=source,
+                status=status,
+            )
+            session.add(workflow)
+            session.flush()
+            symbol_records = [
+                CompareWorkflowSymbolRecord(
+                    id=str(uuid4()),
+                    compare_workflow_id=workflow.id,
+                    ticker=symbol["ticker"].strip().upper(),
+                    company_name=symbol["company_name"],
+                    market=symbol["market"],
+                    exchange=symbol["exchange"],
+                    currency=symbol["currency"],
+                    order_index=index,
+                )
+                for index, symbol in enumerate(symbols)
+            ]
+            session.add_all(symbol_records)
+            session.commit()
+            return self._to_compare_workflow(workflow, symbol_records)
+
+    def get_compare_workflow(self, user_id: str, workflow_id: str) -> CompareWorkflow | None:
+        with self.session_factory() as session:
+            workflow = session.scalar(
+                select(CompareWorkflowRecord).where(
+                    CompareWorkflowRecord.id == workflow_id,
+                    CompareWorkflowRecord.user_id == user_id,
+                )
+            )
+            if not workflow:
+                return None
+            symbols = list(
+                session.scalars(
+                    select(CompareWorkflowSymbolRecord)
+                    .where(CompareWorkflowSymbolRecord.compare_workflow_id == workflow.id)
+                    .order_by(CompareWorkflowSymbolRecord.order_index.asc())
+                )
+            )
+            return self._to_compare_workflow(workflow, symbols)
+
     @staticmethod
     def _get_user_record_by_email(session: Session, email: str) -> UserRecord | None:
         return session.scalar(select(UserRecord).where(UserRecord.email == email))
@@ -342,4 +466,53 @@ class SqlAlchemyAlphaPilotStore:
             output_tokens=record.output_tokens,
             estimated_cost_usd=float(record.estimated_cost_usd) if record.estimated_cost_usd is not None else None,
             created_at=record.created_at,
+        )
+
+    @staticmethod
+    def _to_watchlist_item(record: WatchlistItemRecord) -> WatchlistItem:
+        return WatchlistItem(
+            id=record.id,
+            user_id=record.user_id,
+            ticker=record.ticker,
+            company_name=record.company_name,
+            market=record.market,
+            exchange=record.exchange,
+            currency=record.currency,
+            note=record.note,
+            source=record.source,
+            last_analysis_job_id=record.last_analysis_job_id,
+            created_at=record.created_at,
+            updated_at=record.updated_at,
+        )
+
+    @staticmethod
+    def _to_compare_workflow(
+        record: CompareWorkflowRecord,
+        symbols: list[CompareWorkflowSymbolRecord],
+    ) -> CompareWorkflow:
+        return CompareWorkflow(
+            id=record.id,
+            user_id=record.user_id,
+            symbols=[SqlAlchemyAlphaPilotStore._to_compare_symbol(symbol) for symbol in symbols],
+            start_date=record.start_date,
+            end_date=record.end_date,
+            analysis_anchor=record.analysis_anchor,
+            source=record.source,
+            status=record.status,
+            created_at=record.created_at,
+            updated_at=record.updated_at,
+        )
+
+    @staticmethod
+    def _to_compare_symbol(record: CompareWorkflowSymbolRecord) -> CompareWorkflowSymbol:
+        return CompareWorkflowSymbol(
+            id=record.id,
+            compare_workflow_id=record.compare_workflow_id,
+            ticker=record.ticker,
+            company_name=record.company_name,
+            market=record.market,
+            exchange=record.exchange,
+            currency=record.currency,
+            analysis_job_id=record.analysis_job_id,
+            order_index=record.order_index,
         )

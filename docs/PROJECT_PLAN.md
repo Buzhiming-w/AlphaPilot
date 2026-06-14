@@ -262,7 +262,7 @@ Dependencies:
 
 Objective: turn the Dashboard into a natural-language research workspace that routes logged-in users into Watchlist, Multi-Stock Compare, or Single Stock Analysis workflows.
 
-Status: Design approved; implementation plan written; implementation in progress
+Status: Local MVP implemented and verified; cloud deployment pending
 
 Design:
 - Add a right-side Dashboard Copilot Panel for logged-in users only.
@@ -291,11 +291,11 @@ Tasks:
 - [x] Write detailed implementation plan.
 - [x] Add ticker directory and resolver tests.
 - [x] Add workflow router tests and implementation.
-- [ ] Add Watchlist persistence, API, tests, and frontend view.
-- [ ] Add Compare persistence, API, tests, and frontend view.
-- [ ] Add right-side Dashboard Copilot Panel.
-- [ ] Verify guest access is blocked for Copilot, Watchlist, and Compare.
-- [ ] Verify local tests before cloud deployment.
+- [x] Add Watchlist persistence, API, tests, and frontend view.
+- [x] Add Compare persistence, API, tests, and frontend view.
+- [x] Add right-side Dashboard Copilot Panel.
+- [x] Verify guest access is blocked for Copilot, Watchlist, and Compare.
+- [x] Verify local tests before cloud deployment.
 - [ ] Deploy Phase 7 to Alibaba Cloud demo after local verification.
 
 Completion criteria:

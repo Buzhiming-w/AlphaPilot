@@ -10,6 +10,7 @@ const demoResult = {
 };
 
 let authToken = localStorage.getItem("alphapilot_token") || "";
+let lastCopilotDraft = null;
 
 const views = document.querySelectorAll(".view");
 const navItems = document.querySelectorAll(".nav-item");
@@ -32,6 +33,69 @@ function renderResult(result) {
 function setStatus(message) {
   const status = document.querySelector("#statusText");
   if (status) status.textContent = message;
+}
+
+function renderSymbols(symbols = []) {
+  if (!symbols.length) return "<span class=\"status-text\">No symbols resolved.</span>";
+  return symbols
+    .map(
+      (symbol) =>
+        `<span class="symbol-pill"><strong>${symbol.ticker}</strong>${symbol.company_name}<small>${symbol.exchange} · ${symbol.currency}</small></span>`
+    )
+    .join("");
+}
+
+function renderCopilotDraft(draft) {
+  const panel = document.querySelector("#copilotDraft");
+  if (!panel) return;
+  lastCopilotDraft = draft;
+  const range = [draft.start_date, draft.end_date].filter(Boolean).join(" → ") || "As-of workflow";
+  const action =
+    draft.intent === "add_to_watchlist"
+      ? "<button type=\"button\" id=\"confirmWatchlist\">Add To Watchlist</button>"
+      : draft.intent === "multi_compare"
+        ? "<button type=\"button\" id=\"confirmCompare\">Confirm Compare</button>"
+        : draft.intent === "single_analysis"
+          ? "<button type=\"button\" id=\"confirmSingleAnalysis\">Start Analysis</button>"
+          : "";
+  panel.innerHTML = `
+    <div class="draft-header">
+      <span>${draft.intent}</span>
+      <strong>${range}</strong>
+    </div>
+    <div class="symbol-list">${renderSymbols(draft.symbols)}</div>
+    <p class="status-text">${draft.message}</p>
+    <div class="draft-actions">${action}</div>
+  `;
+}
+
+async function loadWatchlist() {
+  const container = document.querySelector("#watchlistItems");
+  if (!container || !authToken) return;
+  try {
+    const items = await apiFetch("/watchlist");
+    container.innerHTML = items.length
+      ? items
+          .map(
+            (item) =>
+              `<div class="row-item"><span><strong>${item.ticker}</strong>${item.company_name}</span><small>${item.source}</small></div>`
+          )
+          .join("")
+      : "<p class=\"status-text\">No confirmed watchlist items yet.</p>";
+  } catch (error) {
+    container.innerHTML = `<p class="status-text">Watchlist unavailable: ${error.message}</p>`;
+  }
+}
+
+function renderCompareWorkflow(workflow) {
+  const container = document.querySelector("#compareItems");
+  if (!container) return;
+  container.innerHTML = `
+    <div class="row-item">
+      <span><strong>${workflow.symbols.map((symbol) => symbol.ticker).join(" / ")}</strong>${workflow.start_date || "Open"} → ${workflow.end_date || "Latest"}</span>
+      <small>${workflow.status}</small>
+    </div>
+  `;
 }
 
 async function apiFetch(path, options = {}) {
@@ -72,9 +136,69 @@ document.querySelector("#loginForm").addEventListener("submit", async (event) =>
     authToken = payload.access_token;
     localStorage.setItem("alphapilot_token", authToken);
     setStatus("Logged in.");
+    await loadWatchlist();
     document.querySelector('[data-target="dashboard"]').click();
   } catch (error) {
     setStatus(`Login failed: ${error.message}`);
+  }
+});
+
+document.querySelectorAll("[data-prompt]").forEach((button) => {
+  button.addEventListener("click", () => {
+    document.querySelector("#copilotMessage").value = button.dataset.prompt;
+  });
+});
+
+document.querySelector("#copilotForm").addEventListener("submit", async (event) => {
+  event.preventDefault();
+  try {
+    const draft = await apiFetch("/copilot/route", {
+      method: "POST",
+      body: JSON.stringify({ message: document.querySelector("#copilotMessage").value })
+    });
+    renderCopilotDraft(draft);
+    setStatus("Workflow draft ready for confirmation.");
+  } catch (error) {
+    document.querySelector("#copilotDraft").innerHTML = `<p class="status-text">Login required or route failed: ${error.message}</p>`;
+  }
+});
+
+document.querySelector("#copilotDraft").addEventListener("click", async (event) => {
+  if (!lastCopilotDraft) return;
+  if (event.target.id === "confirmWatchlist") {
+    await Promise.all(
+      lastCopilotDraft.symbols.map((symbol) =>
+        apiFetch("/watchlist", {
+          method: "POST",
+          body: JSON.stringify({ ...symbol, source: "copilot" })
+        })
+      )
+    );
+    await loadWatchlist();
+    setStatus("Watchlist updated.");
+    document.querySelector('[data-target="watchlist"]').click();
+  }
+  if (event.target.id === "confirmCompare") {
+    const workflow = await apiFetch("/compare", {
+      method: "POST",
+      body: JSON.stringify({
+        symbols: lastCopilotDraft.symbols,
+        start_date: lastCopilotDraft.start_date,
+        end_date: lastCopilotDraft.end_date,
+        analysis_anchor: lastCopilotDraft.analysis_anchor,
+        source: "copilot"
+      })
+    });
+    renderCompareWorkflow(workflow);
+    setStatus("Compare workflow created.");
+    document.querySelector('[data-target="compare"]').click();
+  }
+  if (event.target.id === "confirmSingleAnalysis") {
+    const symbol = lastCopilotDraft.symbols[0];
+    document.querySelector("#tickerInput").value = symbol.ticker;
+    document.querySelector("#dateInput").value = lastCopilotDraft.analysis_anchor || document.querySelector("#dateInput").value;
+    setStatus("Single analysis form prepared.");
+    document.querySelector('[data-target="new-analysis"]').click();
   }
 });
 
@@ -118,3 +242,4 @@ document.querySelector("#analysisForm").addEventListener("submit", async (event)
 });
 
 loadPublicDemo();
+loadWatchlist();

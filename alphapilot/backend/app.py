@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from fastapi import Depends, FastAPI, Header, HTTPException, Request, status
+from fastapi import Depends, FastAPI, Header, HTTPException, Request, Response, status
 from fastapi.middleware.cors import CORSMiddleware
 
 from .engine_service import AnalysisEngineService
@@ -11,10 +11,17 @@ from .schemas import (
     AnalysisCreateRequest,
     AnalysisDetailResponse,
     AnalysisJobResponse,
+    CompareCreateRequest,
+    CompareWorkflowResponse,
+    CopilotRouteRequest,
+    CopilotRouteResponse,
     LoginRequest,
     RegisterRequest,
+    RoutedSymbolResponse,
     TokenResponse,
     UserResponse,
+    WatchlistCreateRequest,
+    WatchlistItemResponse,
 )
 from .settings import (
     get_database_url,
@@ -26,6 +33,7 @@ from .settings import (
 )
 from .store import AlphaPilotStore, AnalysisJob, User, UserQuota
 from .sqlalchemy_store import SqlAlchemyAlphaPilotStore
+from .workflow_router import WorkflowDraft, WorkflowRouter
 
 
 Store = AlphaPilotStore | SqlAlchemyAlphaPilotStore
@@ -83,6 +91,72 @@ def _job_payload(job: AnalysisJob) -> AnalysisJobResponse:
     )
 
 
+def _routed_symbol_payload(symbol) -> RoutedSymbolResponse:
+    return RoutedSymbolResponse(
+        ticker=symbol.ticker,
+        company_name=symbol.company_name,
+        market=symbol.market,
+        exchange=symbol.exchange,
+        currency=symbol.currency,
+        confidence=getattr(symbol, "confidence", None),
+        match_reason=getattr(symbol, "match_reason", None),
+    )
+
+
+def _copilot_payload(draft: WorkflowDraft) -> CopilotRouteResponse:
+    return CopilotRouteResponse(
+        intent=draft.intent,
+        symbols=[_routed_symbol_payload(symbol) for symbol in draft.symbols],
+        start_date=draft.start_date,
+        end_date=draft.end_date,
+        analysis_anchor=draft.analysis_anchor,
+        requires_confirmation=draft.requires_confirmation,
+        message=draft.message,
+    )
+
+
+def _watchlist_payload(item) -> WatchlistItemResponse:
+    return WatchlistItemResponse(
+        id=item.id,
+        ticker=item.ticker,
+        company_name=item.company_name,
+        market=item.market,
+        exchange=item.exchange,
+        currency=item.currency,
+        note=item.note,
+        source=item.source,
+        last_analysis_job_id=item.last_analysis_job_id,
+        created_at=item.created_at,
+        updated_at=item.updated_at,
+    )
+
+
+def _compare_payload(workflow) -> CompareWorkflowResponse:
+    return CompareWorkflowResponse(
+        id=workflow.id,
+        symbols=[
+            {
+                "id": symbol.id,
+                "ticker": symbol.ticker,
+                "company_name": symbol.company_name,
+                "market": symbol.market,
+                "exchange": symbol.exchange,
+                "currency": symbol.currency,
+                "analysis_job_id": symbol.analysis_job_id,
+                "order_index": symbol.order_index,
+            }
+            for symbol in workflow.symbols
+        ],
+        start_date=workflow.start_date,
+        end_date=workflow.end_date,
+        analysis_anchor=workflow.analysis_anchor,
+        source=workflow.source,
+        status=workflow.status,
+        created_at=workflow.created_at,
+        updated_at=workflow.updated_at,
+    )
+
+
 def create_app(
     *,
     store: Store | None = None,
@@ -108,6 +182,7 @@ def create_app(
     app.state.engine = engine or AnalysisEngineService()
     app.state.queue = queue or _create_queue()
     app.state.rate_limiter = rate_limiter if rate_limiter is not None else _create_rate_limiter()
+    app.state.workflow_router = WorkflowRouter()
 
     def enforce_rate_limit(request: Request, bucket: str) -> None:
         limiter = app.state.rate_limiter
@@ -130,6 +205,10 @@ def create_app(
         if user.role != "admin":
             raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Admin only")
         return user
+
+    def ensure_active_user(user: User) -> None:
+        if not user.is_active:
+            raise HTTPException(status_code=403, detail="User account is disabled")
 
     @app.get("/health")
     def health() -> dict[str, str]:
@@ -173,8 +252,7 @@ def create_app(
         user: User = Depends(current_user),
     ) -> AnalysisJobResponse:
         enforce_rate_limit(request, "analysis")
-        if not user.is_active:
-            raise HTTPException(status_code=403, detail="User account is disabled")
+        ensure_active_user(user)
         try:
             app.state.store.consume_quota(user.id)
         except ValueError as exc:
@@ -214,6 +292,75 @@ def create_app(
             job=_job_payload(job),
             result=result.normalized if result else None,
         )
+
+    @app.post("/copilot/route", response_model=CopilotRouteResponse)
+    def copilot_route(
+        payload: CopilotRouteRequest,
+        request: Request,
+        _: User = Depends(current_user),
+    ) -> CopilotRouteResponse:
+        enforce_rate_limit(request, "copilot")
+        draft = app.state.workflow_router.route(payload.message)
+        return _copilot_payload(draft)
+
+    @app.get("/watchlist", response_model=list[WatchlistItemResponse])
+    def list_watchlist(user: User = Depends(current_user)) -> list[WatchlistItemResponse]:
+        return [_watchlist_payload(item) for item in app.state.store.list_watchlist_items(user.id)]
+
+    @app.post("/watchlist", response_model=WatchlistItemResponse, status_code=201)
+    def create_watchlist_item(
+        payload: WatchlistCreateRequest,
+        user: User = Depends(current_user),
+    ) -> WatchlistItemResponse:
+        ensure_active_user(user)
+        item = app.state.store.create_watchlist_item(
+            user_id=user.id,
+            ticker=payload.ticker,
+            company_name=payload.company_name,
+            market=payload.market,
+            exchange=payload.exchange,
+            currency=payload.currency,
+            note=payload.note,
+            source=payload.source,
+        )
+        return _watchlist_payload(item)
+
+    @app.delete("/watchlist/{item_id}", status_code=204)
+    def delete_watchlist_item(
+        item_id: str,
+        user: User = Depends(current_user),
+    ) -> Response:
+        try:
+            app.state.store.delete_watchlist_item(user.id, item_id)
+        except KeyError as exc:
+            raise HTTPException(status_code=404, detail="Watchlist item not found") from exc
+        return Response(status_code=204)
+
+    @app.post("/compare", response_model=CompareWorkflowResponse, status_code=201)
+    def create_compare(
+        payload: CompareCreateRequest,
+        user: User = Depends(current_user),
+    ) -> CompareWorkflowResponse:
+        ensure_active_user(user)
+        workflow = app.state.store.create_compare_workflow(
+            user_id=user.id,
+            symbols=[symbol.model_dump() for symbol in payload.symbols],
+            start_date=payload.start_date,
+            end_date=payload.end_date,
+            analysis_anchor=payload.analysis_anchor or payload.end_date,
+            source=payload.source,
+        )
+        return _compare_payload(workflow)
+
+    @app.get("/compare/{compare_id}", response_model=CompareWorkflowResponse)
+    def get_compare(
+        compare_id: str,
+        user: User = Depends(current_user),
+    ) -> CompareWorkflowResponse:
+        workflow = app.state.store.get_compare_workflow(user.id, compare_id)
+        if not workflow:
+            raise HTTPException(status_code=404, detail="Compare workflow not found")
+        return _compare_payload(workflow)
 
     @app.get("/admin/users", response_model=list[UserResponse])
     def list_users(_: User = Depends(admin_user)) -> list[UserResponse]:

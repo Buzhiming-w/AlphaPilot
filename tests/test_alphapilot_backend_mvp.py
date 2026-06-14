@@ -132,3 +132,161 @@ def test_normalize_engine_state_handles_logged_trader_decision_name():
     assert normalized["decision"] == "Overweight"
     assert normalized["sections"]["trader"] == "Trader decision"
     assert normalized["sections"]["final"] == "Final decision"
+
+
+@pytest.mark.unit
+def test_copilot_route_requires_auth(client):
+    response = client.post("/copilot/route", json={"message": "Compare NVDA and AMD"})
+
+    assert response.status_code == 401
+
+
+@pytest.mark.unit
+def test_copilot_route_returns_draft_without_consuming_quota(client):
+    token = _register_and_login(client)
+    headers = {"Authorization": f"Bearer {token}"}
+
+    draft = client.post(
+        "/copilot/route",
+        json={"message": "帮我比较黄仁勋的公司和 AMD，从 2024 年初到现在"},
+        headers=headers,
+    )
+
+    assert draft.status_code == 200
+    payload = draft.json()
+    assert payload["intent"] == "multi_compare"
+    assert [symbol["ticker"] for symbol in payload["symbols"]] == ["NVDA", "AMD"]
+    assert payload["start_date"] == "2024-01-01"
+    assert payload["requires_confirmation"] is True
+
+    me = client.get("/me", headers=headers).json()
+    assert me["quota"]["used_today"] == 0
+
+
+@pytest.mark.unit
+def test_watchlist_add_list_and_delete_for_owner(client):
+    token = _register_and_login(client)
+    headers = {"Authorization": f"Bearer {token}"}
+
+    created = client.post(
+        "/watchlist",
+        json={
+            "ticker": "nvda",
+            "company_name": "NVIDIA Corporation",
+            "market": "US",
+            "exchange": "NASDAQ",
+            "currency": "USD",
+            "note": "AI infrastructure leader",
+            "source": "copilot",
+        },
+        headers=headers,
+    )
+
+    assert created.status_code == 201
+    item = created.json()
+    assert item["ticker"] == "NVDA"
+    assert item["note"] == "AI infrastructure leader"
+
+    listed = client.get("/watchlist", headers=headers)
+    assert listed.status_code == 200
+    assert [entry["id"] for entry in listed.json()] == [item["id"]]
+
+    deleted = client.delete(f"/watchlist/{item['id']}", headers=headers)
+    assert deleted.status_code == 204
+    assert client.get("/watchlist", headers=headers).json() == []
+
+
+@pytest.mark.unit
+def test_compare_create_and_get_for_owner(client):
+    token = _register_and_login(client)
+    headers = {"Authorization": f"Bearer {token}"}
+
+    created = client.post(
+        "/compare",
+        json={
+            "symbols": [
+                {
+                    "ticker": "NVDA",
+                    "company_name": "NVIDIA Corporation",
+                    "market": "US",
+                    "exchange": "NASDAQ",
+                    "currency": "USD",
+                },
+                {
+                    "ticker": "AMD",
+                    "company_name": "Advanced Micro Devices, Inc.",
+                    "market": "US",
+                    "exchange": "NASDAQ",
+                    "currency": "USD",
+                },
+            ],
+            "start_date": "2024-01-01",
+            "end_date": "2026-06-15",
+            "analysis_anchor": "2026-06-15",
+            "source": "copilot",
+        },
+        headers=headers,
+    )
+
+    assert created.status_code == 201
+    workflow = created.json()
+    assert workflow["status"] == "draft"
+    assert [symbol["ticker"] for symbol in workflow["symbols"]] == ["NVDA", "AMD"]
+
+    fetched = client.get(f"/compare/{workflow['id']}", headers=headers)
+    assert fetched.status_code == 200
+    assert fetched.json()["id"] == workflow["id"]
+
+
+@pytest.mark.unit
+def test_inactive_user_cannot_create_watchlist_or_compare(client):
+    token = _register_and_login(client)
+    headers = {"Authorization": f"Bearer {token}"}
+    admin_login = client.post(
+        "/auth/login", json={"email": "admin@alphapilot.dev", "password": "admin"}
+    )
+    admin_headers = {"Authorization": f"Bearer {admin_login.json()['access_token']}"}
+    user_id = client.get("/me", headers=headers).json()["id"]
+    client.patch(
+        f"/admin/users/{user_id}",
+        json={"is_active": False},
+        headers=admin_headers,
+    )
+
+    watchlist = client.post(
+        "/watchlist",
+        json={
+            "ticker": "NVDA",
+            "company_name": "NVIDIA Corporation",
+            "market": "US",
+            "exchange": "NASDAQ",
+            "currency": "USD",
+        },
+        headers=headers,
+    )
+    compare = client.post(
+        "/compare",
+        json={
+            "symbols": [
+                {
+                    "ticker": "NVDA",
+                    "company_name": "NVIDIA Corporation",
+                    "market": "US",
+                    "exchange": "NASDAQ",
+                    "currency": "USD",
+                },
+                {
+                    "ticker": "AMD",
+                    "company_name": "Advanced Micro Devices, Inc.",
+                    "market": "US",
+                    "exchange": "NASDAQ",
+                    "currency": "USD",
+                },
+            ],
+            "source": "copilot",
+        },
+        headers=headers,
+    )
+
+    assert watchlist.status_code == 403
+    assert compare.status_code == 403

@@ -8,15 +8,14 @@ Phase 7: Workflow Router Lean MVP
 
 ## Current Task
 
-Implement the Workflow Router Lean MVP: a logged-in Dashboard Copilot that turns natural-language requests into confirmed Watchlist, Multi-Stock Compare, or Single Stock Analysis workflows.
+Finalize and prepare deployment for the locally verified Workflow Router Lean MVP: a logged-in Dashboard Copilot that turns natural-language requests into confirmed Watchlist, Multi-Stock Compare, or Single Stock Analysis workflows.
 
 ## Next Steps
 
-1. Implement ticker resolution, workflow routing, Watchlist, Compare, and Dashboard Copilot UI from `docs/PHASE7_IMPLEMENTATION_PLAN.md`.
-2. Keep English and Chinese docs updated as implementation lands.
-3. Verify locally with tests first.
-4. Deploy to the Alibaba Cloud demo only after local verification passes.
-5. Continue post-Phase-6 hardening after the Workflow Router MVP lands.
+1. Commit and push the locally verified Phase 7 MVP.
+2. Deploy to the Alibaba Cloud demo only after repository verification is complete.
+3. Re-run public smoke checks after deployment.
+4. Continue post-Phase-6 hardening after the Workflow Router MVP lands.
 
 ## Current Blockers
 
@@ -87,6 +86,9 @@ Implement the Workflow Router Lean MVP: a logged-in Dashboard Copilot that turns
 - Added `docs/WORKFLOW_ROUTER_MVP.md` and Chinese mirror under `docs/docs_CN/`.
 - Added Phase 7 implementation plans in English and Chinese docs; implementation is starting with TDD.
 - Added deterministic local ticker directory and Workflow Router MVP boundary with tests for exact ticker, company, Chinese-name, person-clue, date-range, watchlist, single-analysis, and multi-compare routing.
+- Added Watchlist and Compare persistence/API/frontend MVP paths, plus Dashboard right-side Copilot Panel.
+- Local verification passed: `351 passed, 9 warnings, 75 subtests passed`.
+- Verified Alembic migration chain through `20260615_0002_add_workflow_router_tables.py` with SQLite.
 
 ## Completed
 
@@ -113,7 +115,8 @@ Implement the Workflow Router Lean MVP: a logged-in Dashboard Copilot that turns
 
 ## In Progress
 
-- [ ] Phase 7 Workflow Router Lean MVP design review.
+- [x] Phase 7 Workflow Router Lean MVP design review.
+- [x] Phase 7 Workflow Router local MVP implementation.
 
 ## Pending
 

@@ -65,6 +65,49 @@ class ApiUsageLog:
     created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
 
 
+@dataclass
+class WatchlistItem:
+    id: str
+    user_id: str
+    ticker: str
+    company_name: str
+    market: str
+    exchange: str
+    currency: str
+    note: str | None = None
+    source: str = "manual"
+    last_analysis_job_id: str | None = None
+    created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
+    updated_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
+
+
+@dataclass
+class CompareWorkflowSymbol:
+    id: str
+    compare_workflow_id: str
+    ticker: str
+    company_name: str
+    market: str
+    exchange: str
+    currency: str
+    analysis_job_id: str | None = None
+    order_index: int = 0
+
+
+@dataclass
+class CompareWorkflow:
+    id: str
+    user_id: str
+    symbols: list[CompareWorkflowSymbol]
+    start_date: str | None
+    end_date: str | None
+    analysis_anchor: str | None
+    source: str = "manual"
+    status: str = "draft"
+    created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
+    updated_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
+
+
 class AlphaPilotStore:
     """Small in-memory repository for the local MVP and tests.
 
@@ -80,6 +123,8 @@ class AlphaPilotStore:
         self.jobs: dict[str, AnalysisJob] = {}
         self.results: dict[str, AnalysisResult] = {}
         self.usage_logs: list[ApiUsageLog] = []
+        self.watchlist_items: dict[str, WatchlistItem] = {}
+        self.compare_workflows: dict[str, CompareWorkflow] = {}
         self.create_user(
             email=get_admin_email(),
             password=get_admin_password(),
@@ -249,3 +294,89 @@ class AlphaPilotStore:
 
     def list_usage_logs(self) -> list[ApiUsageLog]:
         return list(self.usage_logs)
+
+    def create_watchlist_item(
+        self,
+        *,
+        user_id: str,
+        ticker: str,
+        company_name: str,
+        market: str,
+        exchange: str,
+        currency: str,
+        note: str | None = None,
+        source: str = "manual",
+        last_analysis_job_id: str | None = None,
+    ) -> WatchlistItem:
+        item = WatchlistItem(
+            id=str(uuid4()),
+            user_id=user_id,
+            ticker=ticker.strip().upper(),
+            company_name=company_name,
+            market=market,
+            exchange=exchange,
+            currency=currency,
+            note=note,
+            source=source,
+            last_analysis_job_id=last_analysis_job_id,
+        )
+        self.watchlist_items[item.id] = item
+        return item
+
+    def list_watchlist_items(self, user_id: str) -> list[WatchlistItem]:
+        return sorted(
+            [item for item in self.watchlist_items.values() if item.user_id == user_id],
+            key=lambda item: item.created_at,
+            reverse=True,
+        )
+
+    def delete_watchlist_item(self, user_id: str, item_id: str) -> bool:
+        item = self.watchlist_items.get(item_id)
+        if not item or item.user_id != user_id:
+            raise KeyError(item_id)
+        del self.watchlist_items[item_id]
+        return True
+
+    def create_compare_workflow(
+        self,
+        *,
+        user_id: str,
+        symbols: list[dict[str, str]],
+        start_date: str | None,
+        end_date: str | None,
+        analysis_anchor: str | None,
+        source: str = "manual",
+        status: str = "draft",
+    ) -> CompareWorkflow:
+        workflow_id = str(uuid4())
+        workflow_symbols = [
+            CompareWorkflowSymbol(
+                id=str(uuid4()),
+                compare_workflow_id=workflow_id,
+                ticker=symbol["ticker"].strip().upper(),
+                company_name=symbol["company_name"],
+                market=symbol["market"],
+                exchange=symbol["exchange"],
+                currency=symbol["currency"],
+                order_index=index,
+            )
+            for index, symbol in enumerate(symbols)
+        ]
+        workflow = CompareWorkflow(
+            id=workflow_id,
+            user_id=user_id,
+            symbols=workflow_symbols,
+            start_date=start_date,
+            end_date=end_date,
+            analysis_anchor=analysis_anchor,
+            source=source,
+            status=status,
+        )
+        self.compare_workflows[workflow.id] = workflow
+        return workflow
+
+    def get_compare_workflow(self, user_id: str, workflow_id: str) -> CompareWorkflow | None:
+        workflow = self.compare_workflows.get(workflow_id)
+        if not workflow or workflow.user_id != user_id:
+            return None
+        return workflow

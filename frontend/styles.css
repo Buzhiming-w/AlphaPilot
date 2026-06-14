@@ -204,6 +204,12 @@ h1 {
   margin-top: 12px;
 }
 
+.dashboard-workspace {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(300px, 360px);
+  gap: 12px;
+}
+
 .terminal-panel,
 .report-pane,
 .table-panel {
@@ -218,6 +224,7 @@ h1 {
 }
 
 .terminal-panel input,
+.terminal-panel textarea,
 .terminal-panel button {
   border: 1px solid var(--line);
   background: var(--panel-2);
@@ -226,11 +233,69 @@ h1 {
   border-radius: 4px;
 }
 
+.terminal-panel textarea {
+  width: 100%;
+  min-height: 112px;
+  resize: vertical;
+}
+
 .terminal-panel button {
   background: var(--accent);
   color: #101010;
   font-weight: 700;
   cursor: pointer;
+}
+
+.copilot-panel {
+  align-self: start;
+}
+
+.copilot-form,
+.prompt-row,
+.draft-actions {
+  display: grid;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.prompt-row,
+.draft-actions {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.draft-header,
+.row-item {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  align-items: center;
+  border-bottom: 1px solid var(--line);
+  padding: 10px 0;
+}
+
+.draft-header span,
+.row-item small {
+  color: var(--muted);
+}
+
+.symbol-list {
+  display: grid;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.symbol-pill {
+  display: grid;
+  gap: 2px;
+  border: 1px solid var(--line);
+  background: #11161b;
+  border-radius: 6px;
+  padding: 9px;
+  color: #dce4ea;
+}
+
+.symbol-pill small {
+  color: var(--muted);
 }
 
 .status-text {
@@ -322,6 +387,7 @@ th {
   }
 
   .metric-strip,
+  .dashboard-workspace,
   .dashboard-grid,
   .report-grid,
   .auth-grid,

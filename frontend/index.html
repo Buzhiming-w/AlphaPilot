@@ -21,6 +21,8 @@
           <button class="nav-item active" data-target="dashboard">Dashboard</button>
           <button class="nav-item" data-target="new-analysis">New Analysis</button>
           <button class="nav-item" data-target="analysis-detail">Report Detail</button>
+          <button class="nav-item" data-target="watchlist">Watchlist</button>
+          <button class="nav-item" data-target="compare">Compare</button>
           <button class="nav-item" data-target="admin-users">Admin Users</button>
           <button class="nav-item" data-target="public-demo">Public Demo</button>
         </nav>
@@ -67,39 +69,57 @@
         </section>
 
         <section class="view active" data-view="dashboard">
-          <div class="metric-strip">
-            <article>
-              <span>Decision</span>
-              <strong id="decisionMetric">Overweight</strong>
-            </article>
-            <article>
-              <span>Analysts</span>
-              <strong>Market</strong>
-            </article>
-            <article>
-              <span>Runtime</span>
-              <strong id="runtimeMetric">267s</strong>
-            </article>
-            <article>
-              <span>Provider</span>
-              <strong>DeepSeek</strong>
-            </article>
-          </div>
-          <div class="dashboard-grid">
-            <article class="terminal-panel">
-              <header><span>Agent Pipeline</span><strong>Completed</strong></header>
-              <ol class="pipeline-list">
-                <li class="done">Market analyst</li>
-                <li class="done">Bull/Bear debate</li>
-                <li class="done">Trader plan</li>
-                <li class="done">Risk committee</li>
-              </ol>
-            </article>
-            <article class="terminal-panel">
-              <header><span>Signal Summary</span><strong class="positive">Overweight</strong></header>
-              <p id="summaryText">The demo result is loaded from the saved Phase 1 smoke run, so visitors can inspect the product without consuming LLM quota.</p>
-              <p id="statusText" class="status-text">API not connected yet.</p>
-            </article>
+          <div class="dashboard-workspace">
+            <div>
+              <div class="metric-strip">
+                <article>
+                  <span>Decision</span>
+                  <strong id="decisionMetric">Overweight</strong>
+                </article>
+                <article>
+                  <span>Analysts</span>
+                  <strong>Market</strong>
+                </article>
+                <article>
+                  <span>Runtime</span>
+                  <strong id="runtimeMetric">267s</strong>
+                </article>
+                <article>
+                  <span>Provider</span>
+                  <strong>DeepSeek</strong>
+                </article>
+              </div>
+              <div class="dashboard-grid">
+                <article class="terminal-panel">
+                  <header><span>Agent Pipeline</span><strong>Completed</strong></header>
+                  <ol class="pipeline-list">
+                    <li class="done">Market analyst</li>
+                    <li class="done">Bull/Bear debate</li>
+                    <li class="done">Trader plan</li>
+                    <li class="done">Risk committee</li>
+                  </ol>
+                </article>
+                <article class="terminal-panel">
+                  <header><span>Signal Summary</span><strong class="positive">Overweight</strong></header>
+                  <p id="summaryText">The demo result is loaded from the saved Phase 1 smoke run, so visitors can inspect the product without consuming LLM quota.</p>
+                  <p id="statusText" class="status-text">API not connected yet.</p>
+                </article>
+              </div>
+            </div>
+            <aside class="terminal-panel copilot-panel">
+              <header><span>Copilot Router</span><strong>Confirm first</strong></header>
+              <form id="copilotForm" class="copilot-form">
+                <textarea id="copilotMessage" aria-label="Copilot request">帮我比较黄仁勋的公司和 AMD，从 2024 年初到现在</textarea>
+                <button type="submit">Route workflow</button>
+              </form>
+              <div class="prompt-row">
+                <button type="button" data-prompt="把苹果加入股票池">Watchlist</button>
+                <button type="button" data-prompt="研究英伟达 2024-05-10">Single</button>
+              </div>
+              <div id="copilotDraft" class="copilot-draft">
+                <p class="status-text">Login, then describe the research workflow you want to run.</p>
+              </div>
+            </aside>
           </div>
         </section>
 
@@ -122,6 +142,24 @@
               <header>Final Decision</header>
               <pre id="finalReport">Loading report...</pre>
             </article>
+          </div>
+        </section>
+
+        <section class="view" data-view="watchlist">
+          <div class="table-panel">
+            <header><span>Watchlist</span><strong>Confirmed symbols</strong></header>
+            <div id="watchlistItems" class="symbol-list">
+              <p class="status-text">No watchlist items loaded yet.</p>
+            </div>
+          </div>
+        </section>
+
+        <section class="view" data-view="compare">
+          <div class="table-panel">
+            <header><span>Compare Workflows</span><strong>2-5 tickers</strong></header>
+            <div id="compareItems" class="symbol-list">
+              <p class="status-text">Confirmed compare workflows will appear here.</p>
+            </div>
           </div>
         </section>
 

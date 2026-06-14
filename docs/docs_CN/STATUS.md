@@ -8,15 +8,14 @@ Phase 7：Workflow Router Lean MVP
 
 ## 当前任务
 
-实现 Workflow Router Lean MVP：在登录后的 Dashboard 中加入 Copilot，将自然语言请求转换为已确认的 Watchlist、Multi-Stock Compare 或 Single Stock Analysis workflow。
+收尾并准备部署本地已验证的 Workflow Router Lean MVP：在登录后的 Dashboard 中加入 Copilot，将自然语言请求转换为已确认的 Watchlist、Multi-Stock Compare 或 Single Stock Analysis workflow。
 
 ## 下一步
 
-1. 根据 `docs/PHASE7_IMPLEMENTATION_PLAN.md` 实现 ticker resolution、workflow routing、Watchlist、Compare 和 Dashboard Copilot UI。
-2. 实现过程中持续同步中英文文档。
-3. 先在本地按测试优先方式验证。
-4. 本地验证通过后，再部署到阿里云 demo。
-5. Workflow Router MVP 落地后，继续 Phase 6 之后的 hardening。
+1. 提交并推送本地已验证的 Phase 7 MVP。
+2. 仓库验证完成后，再部署到阿里云 demo。
+3. 部署后重新运行公网 smoke checks。
+4. Workflow Router MVP 落地后，继续 Phase 6 之后的 hardening。
 
 ## 当前阻塞
 
@@ -88,6 +87,9 @@ Phase 7：Workflow Router Lean MVP
 - 新增 `docs/WORKFLOW_ROUTER_MVP.md` 及 `docs/docs_CN/` 下的中文镜像。
 - 新增 Phase 7 中英文实现计划；实现将从 TDD 开始。
 - 新增确定性的本地 ticker directory 和 Workflow Router MVP 边界，并用测试覆盖 exact ticker、公司名、中文名、人物线索、时间段、watchlist、single-analysis 和 multi-compare routing。
+- 新增 Watchlist 和 Compare 的持久化/API/前端 MVP 路径，并加入 Dashboard 右侧 Copilot Panel。
+- 本地验证通过：`351 passed, 9 warnings, 75 subtests passed`。
+- 已用 SQLite 验证 Alembic migration chain 可升级到 `20260615_0002_add_workflow_router_tables.py`。
 
 ## 已完成
 
@@ -114,7 +116,8 @@ Phase 7：Workflow Router Lean MVP
 
 ## 进行中
 
-- [ ] Phase 7 Workflow Router Lean MVP 设计审阅。
+- [x] Phase 7 Workflow Router Lean MVP 设计审阅。
+- [x] Phase 7 Workflow Router 本地 MVP 实现。
 
 ## 待办
 

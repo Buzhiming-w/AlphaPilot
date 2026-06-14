@@ -88,3 +88,54 @@ class ApiUsageLogRecord(Base):
     output_tokens: Mapped[int | None] = mapped_column(Integer, nullable=True)
     estimated_cost_usd: Mapped[float | None] = mapped_column(Numeric(12, 6), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, default=utc_now)
+
+
+class WatchlistItemRecord(Base):
+    __tablename__ = "watchlist_items"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    user_id: Mapped[str] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    ticker: Mapped[str] = mapped_column(String(32), nullable=False, index=True)
+    company_name: Mapped[str] = mapped_column(String(255), nullable=False)
+    market: Mapped[str] = mapped_column(String(32), nullable=False)
+    exchange: Mapped[str] = mapped_column(String(64), nullable=False)
+    currency: Mapped[str] = mapped_column(String(16), nullable=False)
+    note: Mapped[str | None] = mapped_column(Text, nullable=True)
+    source: Mapped[str] = mapped_column(String(32), nullable=False, default="manual")
+    last_analysis_job_id: Mapped[str | None] = mapped_column(
+        ForeignKey("analysis_jobs.id", ondelete="SET NULL"), nullable=True
+    )
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, default=utc_now)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, default=utc_now)
+
+
+class CompareWorkflowRecord(Base):
+    __tablename__ = "compare_workflows"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    user_id: Mapped[str] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    start_date: Mapped[str | None] = mapped_column(String(10), nullable=True)
+    end_date: Mapped[str | None] = mapped_column(String(10), nullable=True)
+    analysis_anchor: Mapped[str | None] = mapped_column(String(10), nullable=True)
+    source: Mapped[str] = mapped_column(String(32), nullable=False, default="manual")
+    status: Mapped[str] = mapped_column(String(32), nullable=False, default="draft")
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, default=utc_now)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, default=utc_now)
+
+
+class CompareWorkflowSymbolRecord(Base):
+    __tablename__ = "compare_workflow_symbols"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    compare_workflow_id: Mapped[str] = mapped_column(
+        ForeignKey("compare_workflows.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    ticker: Mapped[str] = mapped_column(String(32), nullable=False, index=True)
+    company_name: Mapped[str] = mapped_column(String(255), nullable=False)
+    market: Mapped[str] = mapped_column(String(32), nullable=False)
+    exchange: Mapped[str] = mapped_column(String(64), nullable=False)
+    currency: Mapped[str] = mapped_column(String(16), nullable=False)
+    analysis_job_id: Mapped[str | None] = mapped_column(
+        ForeignKey("analysis_jobs.id", ondelete="SET NULL"), nullable=True
+    )
+    order_index: Mapped[int] = mapped_column(Integer, nullable=False, default=0)

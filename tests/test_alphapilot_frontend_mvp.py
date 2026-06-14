@@ -13,6 +13,8 @@ def test_frontend_workspace_contains_mvp_views_and_disclaimer():
         "data-view=\"new-analysis\"",
         "data-view=\"analysis-detail\"",
         "data-view=\"admin-users\"",
+        "data-view=\"watchlist\"",
+        "data-view=\"compare\"",
         "data-view=\"public-demo\"",
     ):
         assert marker in html
@@ -21,6 +23,9 @@ def test_frontend_workspace_contains_mvp_views_and_disclaimer():
     assert "AlphaPilot" in html
     assert "id=\"loginForm\"" in html
     assert "id=\"registerForm\"" in html
+    assert "id=\"copilotForm\"" in html
+    assert "id=\"copilotMessage\"" in html
+    assert "id=\"copilotDraft\"" in html
 
 
 @pytest.mark.unit
@@ -31,6 +36,9 @@ def test_frontend_style_uses_dense_financial_dashboard_primitives():
     assert ".metric-strip" in css
     assert ".terminal-panel" in css
     assert ".report-grid" in css
+    assert ".dashboard-workspace" in css
+    assert ".copilot-panel" in css
+    assert ".symbol-pill" in css
     assert "--accent-positive" in css
     assert "--accent-warning" in css
 
@@ -46,4 +54,7 @@ def test_frontend_javascript_connects_to_backend_api():
     assert "fetch(`${API_BASE}/auth/register`" in js
     assert "apiFetch(\"/analysis\"" in js
     assert "apiFetch(`/analysis/${job.id}`" in js
+    assert "apiFetch(\"/copilot/route\"" in js
+    assert "apiFetch(\"/watchlist\"" in js
+    assert "apiFetch(\"/compare\"" in js
     assert "fetch(`${API_BASE}/demo/reference`" in js

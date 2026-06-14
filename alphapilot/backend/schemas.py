@@ -64,3 +64,90 @@ class AnalysisDetailResponse(BaseModel):
 class AdminUserPatch(BaseModel):
     is_active: bool | None = None
     daily_limit: int | None = Field(default=None, ge=0, le=100)
+
+
+class CopilotRouteRequest(BaseModel):
+    message: str = Field(min_length=1, max_length=1000)
+
+
+class RoutedSymbolResponse(BaseModel):
+    ticker: str
+    company_name: str
+    market: str
+    exchange: str
+    currency: str
+    confidence: str | None = None
+    match_reason: str | None = None
+
+
+class CopilotRouteResponse(BaseModel):
+    intent: str
+    symbols: list[RoutedSymbolResponse]
+    start_date: str | None
+    end_date: str | None
+    analysis_anchor: str | None
+    requires_confirmation: bool
+    message: str
+
+
+class WatchlistCreateRequest(BaseModel):
+    ticker: str = Field(min_length=1, max_length=32)
+    company_name: str = Field(min_length=1, max_length=255)
+    market: str = Field(min_length=1, max_length=32)
+    exchange: str = Field(min_length=1, max_length=64)
+    currency: str = Field(min_length=1, max_length=16)
+    note: str | None = Field(default=None, max_length=1000)
+    source: str = Field(default="manual", max_length=32)
+
+
+class WatchlistItemResponse(BaseModel):
+    id: str
+    ticker: str
+    company_name: str
+    market: str
+    exchange: str
+    currency: str
+    note: str | None
+    source: str
+    last_analysis_job_id: str | None
+    created_at: datetime
+    updated_at: datetime
+
+
+class CompareSymbolRequest(BaseModel):
+    ticker: str = Field(min_length=1, max_length=32)
+    company_name: str = Field(min_length=1, max_length=255)
+    market: str = Field(min_length=1, max_length=32)
+    exchange: str = Field(min_length=1, max_length=64)
+    currency: str = Field(min_length=1, max_length=16)
+
+
+class CompareCreateRequest(BaseModel):
+    symbols: list[CompareSymbolRequest] = Field(min_length=2, max_length=5)
+    start_date: str | None = Field(default=None, pattern=r"^\d{4}-\d{2}-\d{2}$")
+    end_date: str | None = Field(default=None, pattern=r"^\d{4}-\d{2}-\d{2}$")
+    analysis_anchor: str | None = Field(default=None, pattern=r"^\d{4}-\d{2}-\d{2}$")
+    source: str = Field(default="manual", max_length=32)
+
+
+class CompareSymbolResponse(BaseModel):
+    id: str
+    ticker: str
+    company_name: str
+    market: str
+    exchange: str
+    currency: str
+    analysis_job_id: str | None
+    order_index: int
+
+
+class CompareWorkflowResponse(BaseModel):
+    id: str
+    symbols: list[CompareSymbolResponse]
+    start_date: str | None
+    end_date: str | None
+    analysis_anchor: str | None
+    source: str
+    status: str
+    created_at: datetime
+    updated_at: datetime

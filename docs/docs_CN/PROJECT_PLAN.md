@@ -261,7 +261,7 @@ AlphaPilot 只用于投资研究辅助、面试展示和作品集展示。它不
 
 目标：将 Dashboard 升级为自然语言研究工作台，让登录用户通过 Copilot 进入 Watchlist、Multi-Stock Compare 或 Single Stock Analysis workflow。
 
-状态：设计已确认；实现计划已编写；正在实现中
+状态：本地 MVP 已实现并验证；云部署待进行
 
 设计：
 - 在 Dashboard 右侧加入仅登录用户可用的 Copilot Panel。
@@ -290,11 +290,11 @@ AlphaPilot 只用于投资研究辅助、面试展示和作品集展示。它不
 - [x] 编写详细实现计划。
 - [x] 添加 ticker directory 和 resolver 测试。
 - [x] 添加 workflow router 测试和实现。
-- [ ] 添加 Watchlist 持久化、API、测试和前端视图。
-- [ ] 添加 Compare 持久化、API、测试和前端视图。
-- [ ] 添加 Dashboard 右侧 Copilot Panel。
-- [ ] 验证访客无法访问 Copilot、Watchlist 和 Compare。
-- [ ] 云部署前先完成本地测试验证。
+- [x] 添加 Watchlist 持久化、API、测试和前端视图。
+- [x] 添加 Compare 持久化、API、测试和前端视图。
+- [x] 添加 Dashboard 右侧 Copilot Panel。
+- [x] 验证访客无法访问 Copilot、Watchlist 和 Compare。
+- [x] 云部署前先完成本地测试验证。
 - [ ] 本地验证通过后，将 Phase 7 部署到阿里云 demo。
 
 完成标准：
