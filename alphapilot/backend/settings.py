@@ -5,6 +5,8 @@ import os
 
 DEFAULT_POSTGRES_URL = "postgresql+psycopg://alphapilot:alphapilot@localhost:5432/alphapilot"
 DEFAULT_REDIS_URL = "redis://localhost:6379/0"
+DEFAULT_ADMIN_EMAIL = "admin@alphapilot.dev"
+DEFAULT_ADMIN_PASSWORD = "admin"
 
 
 def get_database_url() -> str | None:
@@ -40,3 +42,15 @@ def get_rate_limit() -> int:
 
 def get_rate_limit_window_seconds() -> int:
     return int(os.getenv("ALPHAPILOT_RATE_LIMIT_WINDOW_SECONDS", "60"))
+
+
+def get_admin_email() -> str:
+    return os.getenv("ALPHAPILOT_ADMIN_EMAIL", DEFAULT_ADMIN_EMAIL).strip().lower()
+
+
+def get_admin_password() -> str:
+    return os.getenv("ALPHAPILOT_ADMIN_PASSWORD", DEFAULT_ADMIN_PASSWORD)
+
+
+def is_admin_password_configured() -> bool:
+    return "ALPHAPILOT_ADMIN_PASSWORD" in os.environ

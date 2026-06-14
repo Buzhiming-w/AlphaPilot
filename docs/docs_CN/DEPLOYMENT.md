@@ -52,6 +52,7 @@ Worker
 - SSH 用户名和认证方式。
 - 域名，如果需要真实 hostname 和 HTTPS。
 - 生产 `.env` 值，包括 `DEEPSEEK_API_KEY`。
+- 强随机 `ALPHAPILOT_ADMIN_PASSWORD`；不能在公网暴露本地默认管理员密码。
 - 是否开放 public registration，还是要求 admin-controlled activation。
 
 当前第一版可控 demo 服务器：
@@ -74,6 +75,8 @@ ALPHAPILOT_REDIS_URL=redis://redis:6379/0
 ALPHAPILOT_QUEUE_BACKEND=redis
 ALPHAPILOT_RATE_LIMIT_ENABLED=true
 ALPHAPILOT_PUBLIC_HOST=:80
+ALPHAPILOT_ADMIN_EMAIL=admin@alphapilot.dev
+ALPHAPILOT_ADMIN_PASSWORD=<server-only-random-admin-password>
 DEEPSEEK_API_KEY=<server-only-secret>
 TRADINGAGENTS_LLM_PROVIDER=deepseek
 TRADINGAGENTS_QUICK_THINK_LLM=deepseek-v4-flash
@@ -124,3 +127,4 @@ curl http://127.0.0.1/demo/reference
 - 确认 live jobs 会进入队列并由 worker 完成。
 - 确认失败的 worker jobs 会标记为 `failed` 并保存错误信息。
 - 确认 `.env.production` 没有被 git 跟踪。
+- 公开暴露前确认 `ALPHAPILOT_ADMIN_PASSWORD` 已设置为强随机、仅保存在服务器上的值。

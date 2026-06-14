@@ -6,6 +6,7 @@ from typing import Any
 from uuid import uuid4
 
 from .security import hash_password, new_token, verify_password
+from .settings import get_admin_email, get_admin_password
 
 
 @dataclass
@@ -80,8 +81,8 @@ class AlphaPilotStore:
         self.results: dict[str, AnalysisResult] = {}
         self.usage_logs: list[ApiUsageLog] = []
         self.create_user(
-            email="admin@alphapilot.dev",
-            password="admin",
+            email=get_admin_email(),
+            password=get_admin_password(),
             display_name="AlphaPilot Admin",
             role="admin",
         )

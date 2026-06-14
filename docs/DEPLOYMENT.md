@@ -52,6 +52,7 @@ Codex should pause and ask the user for these values before real server deployme
 - SSH username and authentication method.
 - Domain name, if HTTPS with a real hostname is desired.
 - Production `.env` values, including `DEEPSEEK_API_KEY`.
+- A strong `ALPHAPILOT_ADMIN_PASSWORD`; never expose the local default admin password publicly.
 - Whether to open public registration or require admin-controlled activation.
 
 Current server for the first controlled demo:
@@ -74,6 +75,8 @@ ALPHAPILOT_REDIS_URL=redis://redis:6379/0
 ALPHAPILOT_QUEUE_BACKEND=redis
 ALPHAPILOT_RATE_LIMIT_ENABLED=true
 ALPHAPILOT_PUBLIC_HOST=:80
+ALPHAPILOT_ADMIN_EMAIL=admin@alphapilot.dev
+ALPHAPILOT_ADMIN_PASSWORD=<server-only-random-admin-password>
 DEEPSEEK_API_KEY=<server-only-secret>
 TRADINGAGENTS_LLM_PROVIDER=deepseek
 TRADINGAGENTS_QUICK_THINK_LLM=deepseek-v4-flash
@@ -124,3 +127,4 @@ Before exposing live analysis publicly:
 - Confirm live jobs are queued and completed by the worker.
 - Confirm failed worker jobs are marked `failed` and store an error message.
 - Confirm `.env.production` is not tracked by git.
+- Confirm `ALPHAPILOT_ADMIN_PASSWORD` is set to a strong server-only value before public exposure.

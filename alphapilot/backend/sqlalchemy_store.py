@@ -18,6 +18,7 @@ from .db_models import (
     UserTokenRecord,
 )
 from .security import hash_password, new_token, verify_password
+from .settings import get_admin_email, get_admin_password, is_admin_password_configured
 from .store import AnalysisJob, AnalysisResult, ApiUsageLog, User, UserQuota
 
 
@@ -34,14 +35,21 @@ class SqlAlchemyAlphaPilotStore:
         self._seed_admin()
 
     def _seed_admin(self) -> None:
+        admin_email = get_admin_email()
+        admin_password = get_admin_password()
         with self.session_factory() as session:
-            existing = self._get_user_record_by_email(session, "admin@alphapilot.dev")
+            existing = self._get_user_record_by_email(session, admin_email)
             if existing:
+                if is_admin_password_configured() and not verify_password(
+                    admin_password, existing.password_hash
+                ):
+                    existing.password_hash = hash_password(admin_password)
+                    session.commit()
                 return
             user = UserRecord(
                 id=str(uuid4()),
-                email="admin@alphapilot.dev",
-                password_hash=hash_password("admin"),
+                email=admin_email,
+                password_hash=hash_password(admin_password),
                 display_name="AlphaPilot Admin",
                 role="admin",
             )

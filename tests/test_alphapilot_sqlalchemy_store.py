@@ -72,6 +72,18 @@ def test_sqlalchemy_store_flushes_users_before_creating_quota(monkeypatch, datab
 
 
 @pytest.mark.unit
+def test_sqlalchemy_store_rotates_seeded_admin_password(monkeypatch, database_url):
+    first_store = SqlAlchemyAlphaPilotStore(database_url=database_url)
+    assert first_store.authenticate("admin@alphapilot.dev", "admin")
+
+    monkeypatch.setenv("ALPHAPILOT_ADMIN_PASSWORD", "fresh-admin-pass")
+    second_store = SqlAlchemyAlphaPilotStore(database_url=database_url)
+
+    assert second_store.authenticate("admin@alphapilot.dev", "admin") is None
+    assert second_store.authenticate("admin@alphapilot.dev", "fresh-admin-pass")
+
+
+@pytest.mark.unit
 def test_create_app_can_use_sqlalchemy_database_url(database_url):
     app = create_app(database_url=database_url)
     client = TestClient(app)
