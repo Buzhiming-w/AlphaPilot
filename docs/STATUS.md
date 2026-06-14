@@ -8,23 +8,20 @@ Phase 6: Deployment And Safety
 
 ## Current Task
 
-Phase 6 code and deployment scaffold are in place. Real server deployment is paused until the Alibaba Cloud server, SSH, domain, and production secret values are available.
+Phase 6 baseline deployment is live on the Alibaba Cloud lightweight server. The current public demo is IP-only HTTP while the project has no domain name.
 
 ## Next Steps
 
-1. Buy/configure the Alibaba Cloud lightweight application server.
-2. Fill `.env.production` on the server with real secrets and database password.
-3. Run production migrations and Docker Compose deployment on the server.
-4. Verify the live public URL, Caddy routing, worker processing, rate limiting, and admin controls.
-5. Add browser screenshot verification after the public or local deployment URL is available.
+1. Add a domain name and switch `ALPHAPILOT_PUBLIC_HOST` from `:80` to the hostname so Caddy can manage HTTPS.
+2. Add browser screenshot verification for the public deployment.
+3. Decide whether public registration should remain open or become admin-controlled.
+4. Add backup/restore documentation for PostgreSQL and server recovery.
+5. Continue post-Phase-6 hardening: observability, log rotation, and live job smoke testing.
 
 ## Current Blockers
 
-Waiting for user-provided server details before real deployment:
-- Alibaba Cloud server public IP.
-- SSH username/authentication method.
-- Domain name, if HTTPS with a real hostname is desired.
-- Production secret values, especially `DEEPSEEK_API_KEY` and database password.
+- No domain name yet, so the first deployment is HTTP-only at the server IP.
+- Browser screenshot verification is still pending.
 
 ## Important Context
 
@@ -37,6 +34,10 @@ Waiting for user-provided server details before real deployment:
 - Default config currently uses OpenAI unless overridden by `TRADINGAGENTS_*` environment variables.
 - Phase 6 deployment target is a single Alibaba Cloud lightweight application server with 2 vCPU / 2 GB RAM.
 - Production topology: Caddy reverse proxy, FastAPI API, static frontend, PostgreSQL, Redis, and a background worker on one Docker Compose host.
+- First public deployment URL: `http://47.250.149.226/`
+- Server region: Alibaba Cloud Malaysia (Kuala Lumpur), Ubuntu 22.04.
+- Server path: `/opt/AlphaPilot`
+- Admin credentials were rotated away from the local default. The server-only credentials file is `/root/alphapilot_admin_credentials.txt`.
 
 ## Recent Notes
 
@@ -70,6 +71,15 @@ Waiting for user-provided server details before real deployment:
 - Verified Phase 6 with `pytest -q`: `332 passed, 75 subtests passed`.
 - Verified Alembic migration with SQLite and Docker Compose production config with `.env.production.example`.
 - Re-ran tests inside the `AlphaPilot` conda environment after adding the missing `email-validator` dependency required by Pydantic `EmailStr`: `332 passed, 75 subtests passed`.
+- Deployed the Docker Compose production stack to `47.250.149.226` with Caddy, FastAPI, PostgreSQL, Redis, and worker services.
+- Added a 2 GB swap file on the 2C/2G server for safer image builds.
+- Fixed production PostgreSQL admin seeding by flushing users before quota creation.
+- Packaged the NVDA demo fixture inside `alphapilot/backend/demo_data/` so `/demo/reference` no longer depends on gitignored `.alphapilot_runtime` files in production.
+- Treated Redis queue timeout as an empty queue so the worker stays up while idle.
+- Added `ALPHAPILOT_ADMIN_PASSWORD` support and rotated the production admin password to a server-only random value.
+- Verified public deployment: `/`, `/health`, and `/demo/reference` return HTTP 200 from `http://47.250.149.226`.
+- Verified safety: default `admin` password returns HTTP 401, while the server-only random admin password returns HTTP 200.
+- Latest full local test run in the `AlphaPilot` conda environment: `336 passed, 75 subtests passed`.
 
 ## Completed
 
@@ -90,10 +100,13 @@ Waiting for user-provided server details before real deployment:
 - [x] Choose first deployment target and Phase 6 production topology.
 - [x] Add background worker queue path for live analysis jobs.
 - [x] Add rate limiting and production deployment scaffold.
+- [x] Deploy controlled public demo to Alibaba Cloud.
+- [x] Verify public health/demo endpoints and production worker stability.
+- [x] Rotate production admin credentials away from the local default.
 
 ## In Progress
 
-- [ ] Deploy to Alibaba Cloud lightweight server after user provides server details.
+- [ ] Add domain/HTTPS and browser screenshot verification.
 
 ## Pending
 
@@ -102,4 +115,4 @@ Waiting for user-provided server details before real deployment:
 - [x] Define MVP backend/frontend scope.
 - [x] Build backend API and permissions.
 - [x] Build frontend product UI.
-- [ ] Deploy controlled public demo.
+- [x] Deploy controlled public demo.

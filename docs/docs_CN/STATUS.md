@@ -8,23 +8,20 @@ Phase 6：部署与安全
 
 ## 当前任务
 
-Phase 6 代码和部署脚手架已完成。真实服务器部署暂停，等待阿里云服务器、SSH、域名和生产 secret values。
+Phase 6 基线部署已上线到阿里云轻量应用服务器。当前项目还没有域名，所以第一版公开 demo 使用 IP-only HTTP。
 
 ## 下一步
 
-1. 购买/配置阿里云轻量应用服务器。
-2. 在服务器上填写包含真实 secrets 和数据库密码的 `.env.production`。
-3. 在服务器上运行生产 migrations 和 Docker Compose deployment。
-4. 验证公网 URL、Caddy routing、worker processing、rate limiting 和 admin controls。
-5. 当 public 或 local deployment URL 可用后，补充浏览器截图验证。
+1. 添加域名，并将 `ALPHAPILOT_PUBLIC_HOST` 从 `:80` 切换为 hostname，让 Caddy 管理 HTTPS。
+2. 为公网部署补充 browser screenshot verification。
+3. 决定 public registration 是否继续开放，还是改为 admin-controlled。
+4. 补充 PostgreSQL backup/restore 和服务器恢复文档。
+5. 继续 Phase 6 之后的 hardening：observability、log rotation 和 live job smoke testing。
 
 ## 当前阻塞
 
-等待用户提供服务器信息后才能真实部署：
-- 阿里云服务器公网 IP。
-- SSH 用户名和认证方式。
-- 域名，如果需要真实 hostname 和 HTTPS。
-- 生产 secret values，尤其是 `DEEPSEEK_API_KEY` 和数据库密码。
+- 暂无域名，所以第一版部署只能通过服务器 IP 使用 HTTP。
+- 浏览器截图验证仍待补充。
 
 ## 重要上下文
 
@@ -38,6 +35,10 @@ Phase 6 代码和部署脚手架已完成。真实服务器部署暂停，等待
 - Codex 后续检查时优先检查 `docs/` 下的英文文档；用户查看时可以对照 `docs/docs_CN/` 下的中文文档。
 - Phase 6 部署目标是一台 2 vCPU / 2 GB 阿里云轻量应用服务器。
 - 生产拓扑：单台 Docker Compose 主机上运行 Caddy 反向代理、FastAPI、静态前端、PostgreSQL、Redis 和后台 worker。
+- 第一版公网部署 URL：`http://47.250.149.226/`
+- 服务器地域：阿里云马来西亚（吉隆坡），Ubuntu 22.04。
+- 服务器路径：`/opt/AlphaPilot`
+- 管理员凭据已从本地默认值轮换为服务器专用随机值。服务器上的 root-only 凭据文件是 `/root/alphapilot_admin_credentials.txt`。
 
 ## 最近记录
 
@@ -71,6 +72,15 @@ Phase 6 代码和部署脚手架已完成。真实服务器部署暂停，等待
 - 已用 `pytest -q` 验证 Phase 6：`332 passed, 75 subtests passed`。
 - 已用 SQLite 验证 Alembic migration，并用 `.env.production.example` 验证 Docker Compose production config。
 - 补充 Pydantic `EmailStr` 所需但此前漏声明的 `email-validator` 依赖后，已在 `AlphaPilot` conda 环境重新运行测试：`332 passed, 75 subtests passed`。
+- 已将 Docker Compose 生产栈部署到 `47.250.149.226`，包括 Caddy、FastAPI、PostgreSQL、Redis 和 worker。
+- 已在 2C/2G 服务器上添加 2 GB swap，降低镜像构建时的内存风险。
+- 修复 PostgreSQL 下 admin seeding 的外键顺序问题：创建 quota 前先 flush user。
+- 将 NVDA demo fixture 打包到 `alphapilot/backend/demo_data/`，生产环境的 `/demo/reference` 不再依赖 gitignored 的 `.alphapilot_runtime` 文件。
+- 将 Redis queue timeout 视为空队列，worker 空闲时保持运行，不再反复重启。
+- 新增 `ALPHAPILOT_ADMIN_PASSWORD` 支持，并将生产管理员密码轮换为服务器专用随机值。
+- 已验证公网部署：`http://47.250.149.226` 的 `/`、`/health`、`/demo/reference` 均返回 HTTP 200。
+- 已验证安全项：默认 `admin` 密码返回 HTTP 401，服务器专用随机管理员密码返回 HTTP 200。
+- 最近一次在 `AlphaPilot` conda 环境运行全量测试：`336 passed, 75 subtests passed`。
 
 ## 已完成
 
@@ -91,10 +101,13 @@ Phase 6 代码和部署脚手架已完成。真实服务器部署暂停，等待
 - [x] 选择第一版部署目标和 Phase 6 生产拓扑。
 - [x] 为 live analysis jobs 添加后台 worker queue 路径。
 - [x] 添加 rate limiting 和生产部署脚手架。
+- [x] 将可控公开 demo 部署到阿里云。
+- [x] 验证公网 health/demo endpoints 和生产 worker 稳定性。
+- [x] 将生产管理员凭据从本地默认值轮换出去。
 
 ## 进行中
 
-- [ ] 用户提供服务器信息后部署到阿里云轻量服务器。
+- [ ] 添加域名/HTTPS 和浏览器截图验证。
 
 ## 待办
 
@@ -103,4 +116,4 @@ Phase 6 代码和部署脚手架已完成。真实服务器部署暂停，等待
 - [x] 定义 MVP 后端/前端范围。
 - [x] 构建后端 API 和权限系统。
 - [x] 构建前端产品 UI。
-- [ ] 部署可控的公开 demo。
+- [x] 部署可控的公开 demo。
