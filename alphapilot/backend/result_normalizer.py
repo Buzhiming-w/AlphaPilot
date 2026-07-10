@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from datetime import date, datetime
+from decimal import Decimal
 import json
 from pathlib import Path
 from typing import Any
@@ -58,6 +60,30 @@ def normalize_engine_state(
             "risk": state.get("risk_debate_state", {}),
         },
     }
+
+
+def make_json_safe(value: Any) -> Any:
+    """Convert TradingAgents/LangChain state into JSON-compatible values."""
+    if value is None or isinstance(value, str | int | float | bool):
+        return value
+    if isinstance(value, datetime | date):
+        return value.isoformat()
+    if isinstance(value, Decimal):
+        return float(value)
+    if isinstance(value, dict):
+        return {str(key): make_json_safe(item) for key, item in value.items()}
+    if isinstance(value, list | tuple | set):
+        return [make_json_safe(item) for item in value]
+    if hasattr(value, "model_dump"):
+        try:
+            return make_json_safe(value.model_dump(mode="json"))
+        except TypeError:
+            return make_json_safe(value.model_dump())
+    try:
+        json.dumps(value)
+        return value
+    except TypeError:
+        return str(value)
 
 
 def load_demo_result() -> tuple[dict[str, Any], dict[str, Any]]:

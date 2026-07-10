@@ -61,6 +61,16 @@ class AnalysisDetailResponse(BaseModel):
     result: dict[str, Any] | None
 
 
+class AnalysisProgressEventResponse(BaseModel):
+    id: str
+    job_id: str
+    stage_key: str
+    stage_label: str
+    status: str
+    summary: str | None
+    created_at: datetime
+
+
 class AdminUserPatch(BaseModel):
     is_active: bool | None = None
     daily_limit: int | None = Field(default=None, ge=0, le=100)
@@ -80,9 +90,16 @@ class RoutedSymbolResponse(BaseModel):
     match_reason: str | None = None
 
 
+class RoutedCandidateGroupResponse(BaseModel):
+    query: str
+    candidates: list[RoutedSymbolResponse]
+
+
 class CopilotRouteResponse(BaseModel):
     intent: str
     symbols: list[RoutedSymbolResponse]
+    candidate_groups: list[RoutedCandidateGroupResponse] = []
+    unresolved_entities: list[str] = []
     start_date: str | None
     end_date: str | None
     analysis_anchor: str | None

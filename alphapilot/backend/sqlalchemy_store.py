@@ -4,17 +4,21 @@ from datetime import date, datetime, timezone
 from typing import Any
 from uuid import uuid4
 
-from sqlalchemy import create_engine, select
+from sqlalchemy import create_engine, delete, select
 from sqlalchemy.engine import Engine
 from sqlalchemy.orm import Session, sessionmaker
 
 from .db_models import (
     AnalysisJobRecord,
+    AnalysisProgressEventRecord,
     AnalysisResultRecord,
     ApiUsageLogRecord,
     Base,
     CompareWorkflowRecord,
     CompareWorkflowSymbolRecord,
+    SecurityAliasRecord,
+    SecurityMasterSyncRunRecord,
+    SecurityRecord,
     UserQuotaRecord,
     UserRecord,
     UserTokenRecord,
@@ -24,13 +28,18 @@ from .security import hash_password, new_token, verify_password
 from .settings import get_admin_email, get_admin_password, is_admin_password_configured
 from .store import (
     AnalysisJob,
+    AnalysisProgressEvent,
     AnalysisResult,
     ApiUsageLog,
     CompareWorkflow,
     CompareWorkflowSymbol,
+    Security,
+    SecurityAlias,
+    SecurityMasterSyncRun,
     User,
     UserQuota,
     WatchlistItem,
+    normalize_security_text,
 )
 
 
@@ -174,6 +183,37 @@ class SqlAlchemyAlphaPilotStore:
             session.commit()
             return self._to_job(record)
 
+    def create_analysis_progress_event(
+        self,
+        *,
+        job_id: str,
+        stage_key: str,
+        stage_label: str,
+        status: str,
+        summary: str | None = None,
+    ) -> AnalysisProgressEvent:
+        with self.session_factory() as session:
+            record = AnalysisProgressEventRecord(
+                id=str(uuid4()),
+                job_id=job_id,
+                stage_key=stage_key,
+                stage_label=stage_label,
+                status=status,
+                summary=summary,
+            )
+            session.add(record)
+            session.commit()
+            return self._to_progress_event(record)
+
+    def list_analysis_progress_events(self, job_id: str) -> list[AnalysisProgressEvent]:
+        with self.session_factory() as session:
+            records = session.scalars(
+                select(AnalysisProgressEventRecord)
+                .where(AnalysisProgressEventRecord.job_id == job_id)
+                .order_by(AnalysisProgressEventRecord.created_at.asc())
+            )
+            return [self._to_progress_event(record) for record in records]
+
     def complete_job(
         self,
         job_id: str,
@@ -229,6 +269,37 @@ class SqlAlchemyAlphaPilotStore:
         with self.session_factory() as session:
             record = session.get(AnalysisResultRecord, result_id)
             return self._to_result(record) if record else None
+
+    def update_result_normalized(self, result_id: str, normalized: dict[str, Any]) -> AnalysisResult:
+        with self.session_factory() as session:
+            record = session.get(AnalysisResultRecord, result_id)
+            if not record:
+                raise KeyError(result_id)
+            record.normalized = normalized
+            session.commit()
+            return self._to_result(record)
+
+    def delete_analysis_job(self, user_id: str, job_id: str) -> bool:
+        with self.session_factory() as session:
+            job = session.scalar(
+                select(AnalysisJobRecord).where(
+                    AnalysisJobRecord.id == job_id,
+                    AnalysisJobRecord.user_id == user_id,
+                )
+            )
+            if not job:
+                raise KeyError(job_id)
+            for event in session.scalars(
+                select(AnalysisProgressEventRecord).where(AnalysisProgressEventRecord.job_id == job_id)
+            ):
+                session.delete(event)
+            for result in session.scalars(
+                select(AnalysisResultRecord).where(AnalysisResultRecord.job_id == job_id)
+            ):
+                session.delete(result)
+            session.delete(job)
+            session.commit()
+            return True
 
     def list_jobs_for_user(self, user: User) -> list[AnalysisJob]:
         with self.session_factory() as session:
@@ -386,6 +457,224 @@ class SqlAlchemyAlphaPilotStore:
             )
             return self._to_compare_workflow(workflow, symbols)
 
+    def list_compare_workflows(self, user_id: str) -> list[CompareWorkflow]:
+        with self.session_factory() as session:
+            workflows = list(
+                session.scalars(
+                    select(CompareWorkflowRecord)
+                    .where(CompareWorkflowRecord.user_id == user_id)
+                    .order_by(CompareWorkflowRecord.created_at.desc())
+                )
+            )
+            results: list[CompareWorkflow] = []
+            for workflow in workflows:
+                symbols = list(
+                    session.scalars(
+                        select(CompareWorkflowSymbolRecord)
+                        .where(CompareWorkflowSymbolRecord.compare_workflow_id == workflow.id)
+                        .order_by(CompareWorkflowSymbolRecord.order_index.asc())
+                    )
+                )
+                results.append(self._to_compare_workflow(workflow, symbols))
+            return results
+
+    def delete_compare_workflow(self, user_id: str, workflow_id: str) -> bool:
+        with self.session_factory() as session:
+            workflow = session.scalar(
+                select(CompareWorkflowRecord).where(
+                    CompareWorkflowRecord.id == workflow_id,
+                    CompareWorkflowRecord.user_id == user_id,
+                )
+            )
+            if not workflow:
+                raise KeyError(workflow_id)
+            session.execute(
+                delete(CompareWorkflowSymbolRecord).where(
+                    CompareWorkflowSymbolRecord.compare_workflow_id == workflow_id
+                )
+            )
+            session.delete(workflow)
+            session.commit()
+            return True
+
+    def upsert_security(
+        self,
+        *,
+        symbol: str,
+        name: str,
+        exchange: str,
+        market: str = "US",
+        currency: str = "USD",
+        asset_type: str = "stock",
+        is_etf: bool = False,
+        cik: str | None = None,
+        status: str = "active",
+        source: str = "manual",
+        raw_payload: dict[str, Any] | None = None,
+    ) -> tuple[Security, bool]:
+        normalized_symbol = normalize_security_text(symbol)
+        canonical_symbol = symbol.strip().upper()
+        now = datetime.now(timezone.utc)
+        with self.session_factory() as session:
+            record = session.scalar(
+                select(SecurityRecord).where(
+                    SecurityRecord.market == market,
+                    SecurityRecord.symbol == canonical_symbol,
+                )
+            )
+            created = record is None
+            if record is None:
+                record = SecurityRecord(
+                    id=str(uuid4()),
+                    symbol=canonical_symbol,
+                    normalized_symbol=normalized_symbol,
+                    name=name,
+                    normalized_name=normalize_security_text(name),
+                    exchange=exchange,
+                    market=market,
+                    currency=currency,
+                    asset_type=asset_type,
+                    is_etf=is_etf,
+                    cik=cik,
+                    status=status,
+                    source=source,
+                    raw_payload=raw_payload or {},
+                    first_seen_at=now,
+                    last_seen_at=now,
+                    created_at=now,
+                    updated_at=now,
+                )
+                session.add(record)
+            else:
+                record.name = name
+                record.normalized_name = normalize_security_text(name)
+                record.exchange = exchange
+                record.currency = currency
+                record.asset_type = asset_type
+                record.is_etf = is_etf
+                record.cik = cik or record.cik
+                record.status = status
+                record.source = source
+                record.raw_payload = raw_payload or {}
+                record.last_seen_at = now
+                record.updated_at = now
+            session.commit()
+            return self._to_security(record), created
+
+    def add_security_alias(
+        self,
+        *,
+        security_id: str,
+        alias: str,
+        alias_type: str = "manual",
+        confidence: str = "high",
+        source: str = "manual",
+    ) -> SecurityAlias:
+        normalized_alias = normalize_security_text(alias)
+        with self.session_factory() as session:
+            record = session.scalar(
+                select(SecurityAliasRecord).where(
+                    SecurityAliasRecord.security_id == security_id,
+                    SecurityAliasRecord.normalized_alias == normalized_alias,
+                )
+            )
+            if record is None:
+                record = SecurityAliasRecord(
+                    id=str(uuid4()),
+                    security_id=security_id,
+                    alias=alias,
+                    normalized_alias=normalized_alias,
+                    alias_type=alias_type,
+                    confidence=confidence,
+                    source=source,
+                )
+                session.add(record)
+            else:
+                record.alias = alias
+                record.alias_type = alias_type
+                record.confidence = confidence
+                record.source = source
+                record.updated_at = datetime.now(timezone.utc)
+            session.commit()
+            return self._to_security_alias(record)
+
+    def search_security_master(self, query: str, limit: int = 5) -> list[tuple[Security, str, str]]:
+        from .store import AlphaPilotStore
+
+        normalized_query = normalize_security_text(query)
+        if not normalized_query:
+            return []
+        with self.session_factory() as session:
+            securities = list(
+                session.scalars(select(SecurityRecord).where(SecurityRecord.status == "active"))
+            )
+            aliases = list(session.scalars(select(SecurityAliasRecord)))
+        aliases_by_security: dict[str, list[SecurityAliasRecord]] = {}
+        for alias in aliases:
+            aliases_by_security.setdefault(alias.security_id, []).append(alias)
+        scored: list[tuple[int, SecurityRecord, str, str]] = []
+        for security in securities:
+            terms = [
+                (security.normalized_symbol, "Exact ticker match", "high"),
+                (security.normalized_name, "Exact company name match", "high"),
+            ]
+            terms.extend(
+                (
+                    alias.normalized_alias,
+                    f"{alias.alias_type.replace('_', ' ').title()} match",
+                    alias.confidence,
+                )
+                for alias in aliases_by_security.get(security.id, [])
+            )
+            score, reason, confidence = AlphaPilotStore._score_security_terms(normalized_query, terms)
+            if score > 0:
+                scored.append((score, security, reason, confidence))
+        scored.sort(key=lambda item: (-item[0], item[1].symbol))
+        return [
+            (self._to_security(security), reason, confidence)
+            for _, security, reason, confidence in scored[:limit]
+        ]
+
+    def create_security_master_sync_run(
+        self,
+        *,
+        source: str,
+        status: str,
+        started_at: datetime,
+        finished_at: datetime | None,
+        inserted_count: int = 0,
+        updated_count: int = 0,
+        deactivated_count: int = 0,
+        error: str | None = None,
+        raw_metadata: dict[str, Any] | None = None,
+    ) -> SecurityMasterSyncRun:
+        with self.session_factory() as session:
+            record = SecurityMasterSyncRunRecord(
+                id=str(uuid4()),
+                source=source,
+                started_at=started_at,
+                finished_at=finished_at,
+                status=status,
+                inserted_count=inserted_count,
+                updated_count=updated_count,
+                deactivated_count=deactivated_count,
+                error=error,
+                raw_metadata=raw_metadata or {},
+            )
+            session.add(record)
+            session.commit()
+            return self._to_security_master_sync_run(record)
+
+    def latest_security_master_sync_run(self) -> SecurityMasterSyncRun | None:
+        with self.session_factory() as session:
+            record = session.scalar(
+                select(SecurityMasterSyncRunRecord).order_by(
+                    SecurityMasterSyncRunRecord.finished_at.desc(),
+                    SecurityMasterSyncRunRecord.started_at.desc(),
+                )
+            )
+            return self._to_security_master_sync_run(record) if record else None
+
     @staticmethod
     def _get_user_record_by_email(session: Session, email: str) -> UserRecord | None:
         return session.scalar(select(UserRecord).where(UserRecord.email == email))
@@ -455,6 +744,18 @@ class SqlAlchemyAlphaPilotStore:
         )
 
     @staticmethod
+    def _to_progress_event(record: AnalysisProgressEventRecord) -> AnalysisProgressEvent:
+        return AnalysisProgressEvent(
+            id=record.id,
+            job_id=record.job_id,
+            stage_key=record.stage_key,
+            stage_label=record.stage_label,
+            status=record.status,
+            summary=record.summary,
+            created_at=record.created_at,
+        )
+
+    @staticmethod
     def _to_usage_log(record: ApiUsageLogRecord) -> ApiUsageLog:
         return ApiUsageLog(
             id=record.id,
@@ -515,4 +816,57 @@ class SqlAlchemyAlphaPilotStore:
             currency=record.currency,
             analysis_job_id=record.analysis_job_id,
             order_index=record.order_index,
+        )
+
+    @staticmethod
+    def _to_security(record: SecurityRecord) -> Security:
+        return Security(
+            id=record.id,
+            symbol=record.symbol,
+            normalized_symbol=record.normalized_symbol,
+            name=record.name,
+            normalized_name=record.normalized_name,
+            exchange=record.exchange,
+            market=record.market,
+            currency=record.currency,
+            asset_type=record.asset_type,
+            is_etf=record.is_etf,
+            cik=record.cik,
+            status=record.status,
+            source=record.source,
+            raw_payload=record.raw_payload,
+            first_seen_at=record.first_seen_at,
+            last_seen_at=record.last_seen_at,
+            delisted_at=record.delisted_at,
+            created_at=record.created_at,
+            updated_at=record.updated_at,
+        )
+
+    @staticmethod
+    def _to_security_alias(record: SecurityAliasRecord) -> SecurityAlias:
+        return SecurityAlias(
+            id=record.id,
+            security_id=record.security_id,
+            alias=record.alias,
+            normalized_alias=record.normalized_alias,
+            alias_type=record.alias_type,
+            confidence=record.confidence,
+            source=record.source,
+            created_at=record.created_at,
+            updated_at=record.updated_at,
+        )
+
+    @staticmethod
+    def _to_security_master_sync_run(record: SecurityMasterSyncRunRecord) -> SecurityMasterSyncRun:
+        return SecurityMasterSyncRun(
+            id=record.id,
+            source=record.source,
+            started_at=record.started_at,
+            finished_at=record.finished_at,
+            status=record.status,
+            inserted_count=record.inserted_count,
+            updated_count=record.updated_count,
+            deactivated_count=record.deactivated_count,
+            error=record.error,
+            raw_metadata=record.raw_metadata,
         )

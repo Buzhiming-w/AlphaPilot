@@ -204,3 +204,45 @@ def test_sqlalchemy_store_persists_compare_workflows_with_symbols(database_url):
     assert [symbol.ticker for symbol in persisted.symbols] == ["NVDA", "AMD"]
     assert persisted.symbols[0].company_name == "NVIDIA Corporation"
     assert second_store.get_compare_workflow("not-the-owner", workflow.id) is None
+
+
+@pytest.mark.unit
+def test_sqlalchemy_store_deletes_analysis_jobs_and_compare_workflows(database_url):
+    store = SqlAlchemyAlphaPilotStore(database_url=database_url)
+    user = store.create_user("delete-sql@example.com", "pass-1234", "Delete SQL")
+    job = store.create_job(user.id, "LLY", "2026-06-15", "live", ["market"])
+    store.create_analysis_progress_event(
+        job_id=job.id,
+        stage_key="queued",
+        stage_label="Queued",
+        status="completed",
+        summary="queued",
+    )
+    workflow = store.create_compare_workflow(
+        user_id=user.id,
+        symbols=[
+            {
+                "ticker": "LLY",
+                "company_name": "Eli Lilly and Company",
+                "market": "US",
+                "exchange": "NYSE",
+                "currency": "USD",
+            },
+            {
+                "ticker": "UNH",
+                "company_name": "UnitedHealth Group Incorporated",
+                "market": "US",
+                "exchange": "NYSE",
+                "currency": "USD",
+            },
+        ],
+        start_date="2026-01-01",
+        end_date="2026-06-15",
+        analysis_anchor="2026-06-15",
+    )
+
+    assert store.delete_analysis_job(user.id, job.id) is True
+    assert store.get_job(job.id) is None
+    assert store.list_analysis_progress_events(job.id) == []
+    assert store.delete_compare_workflow(user.id, workflow.id) is True
+    assert store.get_compare_workflow(user.id, workflow.id) is None

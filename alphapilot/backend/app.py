@@ -11,12 +11,14 @@ from .schemas import (
     AnalysisCreateRequest,
     AnalysisDetailResponse,
     AnalysisJobResponse,
+    AnalysisProgressEventResponse,
     CompareCreateRequest,
     CompareWorkflowResponse,
     CopilotRouteRequest,
     CopilotRouteResponse,
     LoginRequest,
     RegisterRequest,
+    RoutedCandidateGroupResponse,
     RoutedSymbolResponse,
     TokenResponse,
     UserResponse,
@@ -33,6 +35,8 @@ from .settings import (
 )
 from .store import AlphaPilotStore, AnalysisJob, User, UserQuota
 from .sqlalchemy_store import SqlAlchemyAlphaPilotStore
+from .security_master.resolver import SecurityMasterResolver
+from .security_master.seed import seed_initial_security_master
 from .workflow_router import WorkflowDraft, WorkflowRouter
 
 
@@ -91,6 +95,18 @@ def _job_payload(job: AnalysisJob) -> AnalysisJobResponse:
     )
 
 
+def _progress_payload(event) -> AnalysisProgressEventResponse:
+    return AnalysisProgressEventResponse(
+        id=event.id,
+        job_id=event.job_id,
+        stage_key=event.stage_key,
+        stage_label=event.stage_label,
+        status=event.status,
+        summary=event.summary,
+        created_at=event.created_at,
+    )
+
+
 def _routed_symbol_payload(symbol) -> RoutedSymbolResponse:
     return RoutedSymbolResponse(
         ticker=symbol.ticker,
@@ -107,6 +123,14 @@ def _copilot_payload(draft: WorkflowDraft) -> CopilotRouteResponse:
     return CopilotRouteResponse(
         intent=draft.intent,
         symbols=[_routed_symbol_payload(symbol) for symbol in draft.symbols],
+        candidate_groups=[
+            RoutedCandidateGroupResponse(
+                query=group.query,
+                candidates=[_routed_symbol_payload(symbol) for symbol in group.candidates],
+            )
+            for group in draft.candidate_groups
+        ],
+        unresolved_entities=draft.unresolved_entities,
         start_date=draft.start_date,
         end_date=draft.end_date,
         analysis_anchor=draft.analysis_anchor,
@@ -179,10 +203,11 @@ def create_app(
         if resolved_database_url
         else AlphaPilotStore()
     )
+    seed_initial_security_master(app.state.store)
     app.state.engine = engine or AnalysisEngineService()
     app.state.queue = queue or _create_queue()
     app.state.rate_limiter = rate_limiter if rate_limiter is not None else _create_rate_limiter()
-    app.state.workflow_router = WorkflowRouter()
+    app.state.workflow_router = WorkflowRouter(directory=SecurityMasterResolver(app.state.store))
 
     def enforce_rate_limit(request: Request, bucket: str) -> None:
         limiter = app.state.rate_limiter
@@ -253,10 +278,11 @@ def create_app(
     ) -> AnalysisJobResponse:
         enforce_rate_limit(request, "analysis")
         ensure_active_user(user)
-        try:
-            app.state.store.consume_quota(user.id)
-        except ValueError as exc:
-            raise HTTPException(status_code=429, detail=str(exc)) from exc
+        if user.role != "admin":
+            try:
+                app.state.store.consume_quota(user.id)
+            except ValueError as exc:
+                raise HTTPException(status_code=429, detail=str(exc)) from exc
 
         job = app.state.store.create_job(
             user_id=user.id,
@@ -266,6 +292,13 @@ def create_app(
             selected_analysts=payload.selected_analysts,
         )
         if payload.mode == "live":
+            app.state.store.create_analysis_progress_event(
+                job_id=job.id,
+                stage_key="queued",
+                stage_label="Queued",
+                status="completed",
+                summary="Analysis request accepted and queued for the worker.",
+            )
             app.state.queue.enqueue(job.id)
             return _job_payload(job)
         try:
@@ -292,6 +325,30 @@ def create_app(
             job=_job_payload(job),
             result=result.normalized if result else None,
         )
+
+    @app.delete("/analysis/{job_id}", status_code=204)
+    def delete_analysis(
+        job_id: str,
+        user: User = Depends(current_user),
+    ) -> Response:
+        job = app.state.store.get_job(job_id)
+        if not job or (user.role != "admin" and job.user_id != user.id):
+            raise HTTPException(status_code=404, detail="Analysis job not found")
+        try:
+            app.state.store.delete_analysis_job(job.user_id, job_id)
+        except KeyError as exc:
+            raise HTTPException(status_code=404, detail="Analysis job not found") from exc
+        return Response(status_code=204)
+
+    @app.get("/analysis/{job_id}/progress", response_model=list[AnalysisProgressEventResponse])
+    def analysis_progress(
+        job_id: str,
+        user: User = Depends(current_user),
+    ) -> list[AnalysisProgressEventResponse]:
+        job = app.state.store.get_job(job_id)
+        if not job or (user.role != "admin" and job.user_id != user.id):
+            raise HTTPException(status_code=404, detail="Analysis job not found")
+        return [_progress_payload(event) for event in app.state.store.list_analysis_progress_events(job_id)]
 
     @app.post("/copilot/route", response_model=CopilotRouteResponse)
     def copilot_route(
@@ -352,6 +409,10 @@ def create_app(
         )
         return _compare_payload(workflow)
 
+    @app.get("/compare", response_model=list[CompareWorkflowResponse])
+    def list_compare(user: User = Depends(current_user)) -> list[CompareWorkflowResponse]:
+        return [_compare_payload(workflow) for workflow in app.state.store.list_compare_workflows(user.id)]
+
     @app.get("/compare/{compare_id}", response_model=CompareWorkflowResponse)
     def get_compare(
         compare_id: str,
@@ -361,6 +422,17 @@ def create_app(
         if not workflow:
             raise HTTPException(status_code=404, detail="Compare workflow not found")
         return _compare_payload(workflow)
+
+    @app.delete("/compare/{compare_id}", status_code=204)
+    def delete_compare(
+        compare_id: str,
+        user: User = Depends(current_user),
+    ) -> Response:
+        try:
+            app.state.store.delete_compare_workflow(user.id, compare_id)
+        except KeyError as exc:
+            raise HTTPException(status_code=404, detail="Compare workflow not found") from exc
+        return Response(status_code=204)
 
     @app.get("/admin/users", response_model=list[UserResponse])
     def list_users(_: User = Depends(admin_user)) -> list[UserResponse]:

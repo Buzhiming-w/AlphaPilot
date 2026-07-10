@@ -65,6 +65,36 @@ def test_analysis_creation_consumes_quota_and_exposes_demo_result(client):
 
 
 @pytest.mark.unit
+def test_admin_analysis_creation_bypasses_daily_quota(client):
+    admin_login = client.post(
+        "/auth/login", json={"email": "admin@alphapilot.dev", "password": "admin"}
+    )
+    assert admin_login.status_code == 200
+    headers = {"Authorization": f"Bearer {admin_login.json()['access_token']}"}
+
+    admin_me = client.get("/me", headers=headers).json()
+    user_id = admin_me["id"]
+    patched = client.patch(
+        f"/admin/users/{user_id}",
+        json={"daily_limit": 0},
+        headers=headers,
+    )
+    assert patched.status_code == 200
+    assert patched.json()["quota"]["daily_limit"] == 0
+
+    created = client.post(
+        "/analysis",
+        json={"ticker": "NVDA", "trade_date": "2024-05-10", "mode": "demo"},
+        headers=headers,
+    )
+
+    assert created.status_code == 201
+    assert created.json()["status"] == "completed"
+    me_after = client.get("/me", headers=headers).json()
+    assert me_after["quota"]["used_today"] == 0
+
+
+@pytest.mark.unit
 def test_public_demo_reference_does_not_require_auth_or_consume_quota(client):
     response = client.get("/demo/reference")
 
@@ -154,13 +184,34 @@ def test_copilot_route_returns_draft_without_consuming_quota(client):
 
     assert draft.status_code == 200
     payload = draft.json()
-    assert payload["intent"] == "multi_compare"
+    assert payload["intent"] == "compare"
     assert [symbol["ticker"] for symbol in payload["symbols"]] == ["NVDA", "AMD"]
+    assert [group["query"] for group in payload["candidate_groups"]] == ["黄仁勋", "AMD"]
+    assert payload["unresolved_entities"] == []
     assert payload["start_date"] == "2024-01-01"
     assert payload["requires_confirmation"] is True
 
     me = client.get("/me", headers=headers).json()
     assert me["quota"]["used_today"] == 0
+
+
+@pytest.mark.unit
+def test_copilot_route_returns_unresolved_entities_for_draft_refinement(client):
+    token = _register_and_login(client)
+    headers = {"Authorization": f"Bearer {token}"}
+
+    draft = client.post(
+        "/copilot/route",
+        json={"message": "比较 NVDA 和 Neverland Robotics"},
+        headers=headers,
+    )
+
+    assert draft.status_code == 200
+    payload = draft.json()
+    assert payload["intent"] == "clarify"
+    assert [symbol["ticker"] for symbol in payload["symbols"]] == ["NVDA"]
+    assert payload["unresolved_entities"] == ["Neverland Robotics"]
+    assert payload["requires_confirmation"] is False
 
 
 @pytest.mark.unit

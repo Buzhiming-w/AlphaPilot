@@ -93,6 +93,7 @@ Status: Completed for MVP
 Tasks:
 - [x] Define user roles: guest, regular user, admin.
 - [x] Define analysis permissions and quotas.
+- [x] Update quota policy so regular users get 3 live workflows per day, while admin users bypass daily quota but remain subject to system-level rate limiting and worker capacity.
 - [x] Define what a public demo user can see without consuming LLM quota.
 - [x] Define MVP pages:
   - Login/Register
@@ -260,26 +261,26 @@ Dependencies:
 
 ## Phase 7: Workflow Router Lean MVP
 
-Objective: turn the Dashboard into a natural-language research workspace that routes logged-in users into Watchlist, Multi-Stock Compare, or Single Stock Analysis workflows.
+Objective: turn the Dashboard into a natural-language research workspace that routes logged-in users into either `Analysis` or `Compare` workflows.
 
 Status: Deployed to Alibaba Cloud demo
 
 Design:
-- Add a right-side Dashboard Copilot Panel for logged-in users only.
-- Parse natural-language requests into a draft workflow.
-- Support first-version intents:
-  - `add_to_watchlist`
-  - `single_analysis`
-  - `multi_compare`
-  - `clarify`
-  - `unsupported`
+- Add a Dashboard Copilot conversation for logged-in users only.
+- Parse natural-language requests into a structured draft workflow.
+- Support post-cleanup intents:
+  - `analysis` for single-stock or multi-stock research analysis;
+  - `compare` for explicit cross-stock comparison;
+  - `clarify`;
+  - `unsupported`.
+- Keep existing Watchlist backend/storage available for now, but remove Watchlist as a primary Copilot shortcut and primary navigation destination.
 - Resolve tickers with a hybrid strategy:
   - local US equity directory first;
   - AI fallback when local confidence is low;
   - future external search provider behind an interface.
 - Support US equities first while preserving `market`, `exchange`, and `currency` fields for future market expansion.
 - Parse natural-language dates and ranges; save `start_date` and `end_date`, but use `end_date` as the first-version TradingAgents analysis anchor.
-- Require user confirmation before creating watchlist items, compare workflows, or analysis jobs.
+- Require user confirmation before creating compare workflows or analysis jobs.
 
 Tasks:
 - [x] Choose Lean MVP scope over full workflow platform scope.
@@ -298,14 +299,43 @@ Tasks:
 - [x] Verify local tests before cloud deployment.
 - [x] Deploy Phase 7 to Alibaba Cloud demo after local verification.
 
+Post-deployment cleanup:
+- [x] Remove the legacy Dashboard top-right quick analysis form (`ticker`, `trade_date`, `Run analysis`) because analysis entry should now happen through `Analysis` or Copilot confirmation.
+- [x] Keep the Dashboard topbar focused on workspace status and navigation instead of direct analysis execution.
+- [x] Redesign left navigation to contain only `Dashboard`, `Analysis`, and `Compare`.
+- [x] Move `Login` / account controls to the top-right account area.
+- [x] Show the logged-in user's display name in the top-right account area, falling back to email when needed.
+- [x] Show admin controls only to admin users, outside normal primary navigation.
+- [x] Merge `New Analysis` and `Report Detail` into the `Analysis` section.
+- [x] Hide `Watchlist` as a primary navigation item while keeping backend capability available.
+- [x] Keep history records inside both `Analysis` and `Compare`.
+- [x] Route confirmed Dashboard Copilot workflows directly into `Analysis` or `Compare` and load the corresponding analysis interface.
+- [x] Remove or relabel the stale Dashboard `Decision: Overweight` demo metric so it cannot be mistaken for the current user workflow decision.
+- [x] Show `Overweight` / `Neutral` / `Underweight` only inside `Analysis`, `Compare`, or clearly labeled demo result summaries.
+- [x] Replace the button-heavy Copilot Router with a simplified natural-language conversation flow.
+- [x] Remove Copilot shortcut buttons such as `Watchlist`, `Single`, and `Route workflow`.
+- [x] Use one natural-language submit action and one final `Confirm` action.
+- [x] Let users correct the interpreted analysis draft by continuing the conversation before confirmation.
+- [x] Call the LLM server-side to interpret user intent into a structured draft, then validate resolved tickers before workflow start.
+- [x] Return candidate ticker lists for fuzzy but constrained Copilot requests, such as large-cap US healthcare stock research.
+- [x] Enhance Copilot draft refinement with removable stock chips, per-entity candidate selection, unresolved entity prompts, and final symbol-count validation.
+- [x] Let users delete `Analysis` history items regardless of whether jobs are queued, running, completed, or failed.
+- [x] Let users delete `Compare` history items.
+- [x] Make the worker safely skip deleted queued jobs if a stale queue entry is processed later.
+- [x] Add real workflow progress events so running `Analysis` and `Compare` reports can show stage-by-stage updates.
+- [x] Add a typewriter-style report reveal for real streamed or polled progress text.
+- [x] Persist final reports and reconcile them with any in-progress streamed text when the workflow completes.
+
 Completion criteria:
 - A logged-in user can type a natural-language request and receive a structured draft workflow.
 - The router can identify common US tickers, company names, aliases, Chinese names, and person-based examples.
-- The user can confirm candidates and create Watchlist, Compare, or Single Analysis workflows.
-- Watchlist items persist after reload.
+- The user can remove wrong symbols, choose among ambiguous candidates, and see unresolved entities before final confirmation.
+- The user can confirm a draft and create either an `Analysis` or `Compare` workflow.
+- Existing Watchlist API/storage remains protected and persistent, but is not a primary user flow.
 - Compare workflows persist confirmed tickers and date ranges.
-- Dashboard contains a right-side Copilot Panel without breaking existing analysis workflows.
-- Tests cover router, watchlist, compare, permission, and frontend structure paths.
+- Dashboard contains a simplified Copilot conversation without breaking existing analysis workflows.
+- Running reports show real stage progress and interim conclusions instead of a black-box wait state.
+- Tests cover router, compare, permission, account/nav visibility, progress reporting, and frontend structure paths.
 
 Dependencies:
 - Phase 4 backend API/auth/quota.
@@ -315,6 +345,49 @@ Dependencies:
 Can be parallelized with:
 - Documentation polish.
 - Domain/HTTPS deployment hardening after the local implementation is stable.
+- Phase 7 UI cleanup after the deployed MVP is reviewed.
+
+Navigation redesign source:
+- `docs/PRODUCT_NAVIGATION_REDESIGN.md`
+
+## Phase 7.5: Security Master And Entity Resolution
+
+Objective: replace the narrow hardcoded ticker directory with a database-backed Security Master that can resolve US stocks, common ETFs, Chinese names, aliases, and person clues for Copilot.
+
+Status: Local implementation in progress
+
+Design source:
+- `docs/SECURITY_MASTER_PLAN.md`
+
+Design:
+- Keep the current Copilot LLM layer as a semantic extraction helper.
+- Make PostgreSQL-backed Security Master the authoritative ticker confirmation source.
+- Load baseline US securities from Nasdaq Trader symbol directory files and enrich CIK/company-name data from SEC `company_tickers_exchange.json`.
+- Store common Chinese names, Chinese abbreviations, old names, brand names, and CEO/founder/person clues in `security_aliases`, not in Python hardcoded lists.
+- Keep unresolved Copilot query logging available for later review, but do not build admin alias-maintenance UI/endpoints in the current phase.
+- Preserve mandatory user confirmation before starting Analysis or Compare workflows.
+
+Tasks:
+- [x] Write detailed Security Master design and maintenance plan.
+- [x] Add database tables for `securities`, `security_aliases`, `security_master_sync_runs`, and `security_resolution_failures`.
+- [x] Add a source sync command for Nasdaq Trader and SEC files.
+- [x] Schedule production Security Master sync every Monday at 00:00 server time.
+- [x] Seed high-value aliases for common US large caps and ETFs, including Chinese names and person clues.
+- [x] Add `SecurityMasterResolver` and replace the hardcoded `LocalTickerDirectory` in Copilot routing.
+- [x] Decide not to build admin maintenance endpoints/UI in this phase; maintain aliases directly in `security_aliases`.
+- [x] Add tests proving requests such as `Compare 3M and ORCL from June 2015 to now` resolve to `MMM` and `ORCL`.
+
+Completion criteria:
+- `MMM`, `ORCL`, common large-cap stocks, and common ETFs resolve from database-backed Security Master data.
+- Chinese names and person clues are represented as database aliases.
+- Copilot can return candidate lists for ambiguous matches and does not start workflows until the user confirms.
+- Security Master sync is idempotent and auditable.
+- Production Security Master sync runs automatically every Monday at 00:00 server time after the initial manual sync.
+- Existing Workflow Router behavior remains covered by tests.
+
+Dependencies:
+- Phase 6 PostgreSQL persistence.
+- Phase 7 Copilot routing and confirmation workflow.
 
 ## Phase 8: Portfolio Polish
 

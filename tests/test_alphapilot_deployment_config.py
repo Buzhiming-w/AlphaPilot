@@ -31,6 +31,7 @@ def test_production_env_example_has_required_keys_without_real_secrets():
         "ALPHAPILOT_RATE_LIMIT_ENABLED=true",
         "DEEPSEEK_API_KEY=",
         "TRADINGAGENTS_LLM_PROVIDER=deepseek",
+        "TRADINGAGENTS_OUTPUT_LANGUAGE=English",
     ]
     for key in required_keys:
         assert key in env_example

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from datetime import date, datetime, timezone
+from difflib import SequenceMatcher
 from typing import Any
 from uuid import uuid4
 
@@ -49,6 +50,17 @@ class AnalysisResult:
     job_id: str
     normalized: dict[str, Any]
     raw_state: dict[str, Any]
+    created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
+
+
+@dataclass
+class AnalysisProgressEvent:
+    id: str
+    job_id: str
+    stage_key: str
+    stage_label: str
+    status: str
+    summary: str | None = None
     created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
 
 
@@ -108,6 +120,67 @@ class CompareWorkflow:
     updated_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
 
 
+@dataclass
+class Security:
+    id: str
+    symbol: str
+    normalized_symbol: str
+    name: str
+    normalized_name: str
+    exchange: str
+    market: str = "US"
+    currency: str = "USD"
+    asset_type: str = "stock"
+    is_etf: bool = False
+    cik: str | None = None
+    status: str = "active"
+    source: str = "manual"
+    raw_payload: dict[str, Any] = field(default_factory=dict)
+    first_seen_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
+    last_seen_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
+    delisted_at: datetime | None = None
+    created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
+    updated_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
+
+
+@dataclass
+class SecurityAlias:
+    id: str
+    security_id: str
+    alias: str
+    normalized_alias: str
+    alias_type: str = "manual"
+    confidence: str = "high"
+    source: str = "manual"
+    created_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
+    updated_at: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
+
+
+@dataclass
+class SecurityMasterSyncRun:
+    id: str
+    source: str
+    started_at: datetime
+    finished_at: datetime | None
+    status: str
+    inserted_count: int = 0
+    updated_count: int = 0
+    deactivated_count: int = 0
+    error: str | None = None
+    raw_metadata: dict[str, Any] = field(default_factory=dict)
+
+
+def normalize_security_text(value: str) -> str:
+    return " ".join(
+        value.casefold()
+        .replace("，", " ")
+        .replace(",", " ")
+        .replace(".", "")
+        .replace("-", " ")
+        .split()
+    )
+
+
 class AlphaPilotStore:
     """Small in-memory repository for the local MVP and tests.
 
@@ -122,9 +195,14 @@ class AlphaPilotStore:
         self.quotas: dict[str, UserQuota] = {}
         self.jobs: dict[str, AnalysisJob] = {}
         self.results: dict[str, AnalysisResult] = {}
+        self.progress_events: dict[str, list[AnalysisProgressEvent]] = {}
         self.usage_logs: list[ApiUsageLog] = []
         self.watchlist_items: dict[str, WatchlistItem] = {}
         self.compare_workflows: dict[str, CompareWorkflow] = {}
+        self.securities: dict[str, Security] = {}
+        self.security_by_market_symbol: dict[tuple[str, str], str] = {}
+        self.security_aliases: dict[str, SecurityAlias] = {}
+        self.security_sync_runs: list[SecurityMasterSyncRun] = []
         self.create_user(
             email=get_admin_email(),
             password=get_admin_password(),
@@ -218,6 +296,29 @@ class AlphaPilotStore:
         self.jobs[job.id] = job
         return job
 
+    def create_analysis_progress_event(
+        self,
+        *,
+        job_id: str,
+        stage_key: str,
+        stage_label: str,
+        status: str,
+        summary: str | None = None,
+    ) -> AnalysisProgressEvent:
+        event = AnalysisProgressEvent(
+            id=str(uuid4()),
+            job_id=job_id,
+            stage_key=stage_key,
+            stage_label=stage_label,
+            status=status,
+            summary=summary,
+        )
+        self.progress_events.setdefault(job_id, []).append(event)
+        return event
+
+    def list_analysis_progress_events(self, job_id: str) -> list[AnalysisProgressEvent]:
+        return list(self.progress_events.get(job_id, []))
+
     def complete_job(
         self,
         job_id: str,
@@ -255,6 +356,21 @@ class AlphaPilotStore:
 
     def get_result(self, result_id: str | None) -> AnalysisResult | None:
         return self.results.get(result_id) if result_id else None
+
+    def update_result_normalized(self, result_id: str, normalized: dict[str, Any]) -> AnalysisResult:
+        result = self.results[result_id]
+        result.normalized = normalized
+        return result
+
+    def delete_analysis_job(self, user_id: str, job_id: str) -> bool:
+        job = self.jobs.get(job_id)
+        if not job or job.user_id != user_id:
+            raise KeyError(job_id)
+        if job.result_id:
+            self.results.pop(job.result_id, None)
+        self.progress_events.pop(job_id, None)
+        del self.jobs[job_id]
+        return True
 
     def list_jobs_for_user(self, user: User) -> list[AnalysisJob]:
         if user.role == "admin":
@@ -380,3 +496,183 @@ class AlphaPilotStore:
         if not workflow or workflow.user_id != user_id:
             return None
         return workflow
+
+    def list_compare_workflows(self, user_id: str) -> list[CompareWorkflow]:
+        return sorted(
+            [workflow for workflow in self.compare_workflows.values() if workflow.user_id == user_id],
+            key=lambda workflow: workflow.created_at,
+            reverse=True,
+        )
+
+    def delete_compare_workflow(self, user_id: str, workflow_id: str) -> bool:
+        workflow = self.compare_workflows.get(workflow_id)
+        if not workflow or workflow.user_id != user_id:
+            raise KeyError(workflow_id)
+        del self.compare_workflows[workflow_id]
+        return True
+
+    def upsert_security(
+        self,
+        *,
+        symbol: str,
+        name: str,
+        exchange: str,
+        market: str = "US",
+        currency: str = "USD",
+        asset_type: str = "stock",
+        is_etf: bool = False,
+        cik: str | None = None,
+        status: str = "active",
+        source: str = "manual",
+        raw_payload: dict[str, Any] | None = None,
+    ) -> tuple[Security, bool]:
+        normalized_symbol = normalize_security_text(symbol)
+        key = (market, symbol.strip().upper())
+        now = datetime.now(timezone.utc)
+        existing_id = self.security_by_market_symbol.get(key)
+        if existing_id:
+            security = self.securities[existing_id]
+            security.name = name
+            security.normalized_name = normalize_security_text(name)
+            security.exchange = exchange
+            security.currency = currency
+            security.asset_type = asset_type
+            security.is_etf = is_etf
+            security.cik = cik or security.cik
+            security.status = status
+            security.source = source
+            security.raw_payload = raw_payload or {}
+            security.last_seen_at = now
+            security.updated_at = now
+            return security, False
+        security = Security(
+            id=str(uuid4()),
+            symbol=symbol.strip().upper(),
+            normalized_symbol=normalized_symbol,
+            name=name,
+            normalized_name=normalize_security_text(name),
+            exchange=exchange,
+            market=market,
+            currency=currency,
+            asset_type=asset_type,
+            is_etf=is_etf,
+            cik=cik,
+            status=status,
+            source=source,
+            raw_payload=raw_payload or {},
+            first_seen_at=now,
+            last_seen_at=now,
+            created_at=now,
+            updated_at=now,
+        )
+        self.securities[security.id] = security
+        self.security_by_market_symbol[key] = security.id
+        return security, True
+
+    def add_security_alias(
+        self,
+        *,
+        security_id: str,
+        alias: str,
+        alias_type: str = "manual",
+        confidence: str = "high",
+        source: str = "manual",
+    ) -> SecurityAlias:
+        normalized_alias = normalize_security_text(alias)
+        for existing in self.security_aliases.values():
+            if existing.security_id == security_id and existing.normalized_alias == normalized_alias:
+                existing.alias = alias
+                existing.alias_type = alias_type
+                existing.confidence = confidence
+                existing.source = source
+                existing.updated_at = datetime.now(timezone.utc)
+                return existing
+        record = SecurityAlias(
+            id=str(uuid4()),
+            security_id=security_id,
+            alias=alias,
+            normalized_alias=normalized_alias,
+            alias_type=alias_type,
+            confidence=confidence,
+            source=source,
+        )
+        self.security_aliases[record.id] = record
+        return record
+
+    def search_security_master(self, query: str, limit: int = 5) -> list[tuple[Security, str, str]]:
+        normalized_query = normalize_security_text(query)
+        if not normalized_query:
+            return []
+        aliases_by_security: dict[str, list[SecurityAlias]] = {}
+        for alias in self.security_aliases.values():
+            aliases_by_security.setdefault(alias.security_id, []).append(alias)
+        scored: list[tuple[int, Security, str, str]] = []
+        for security in self.securities.values():
+            if security.status != "active":
+                continue
+            terms = [
+                (security.normalized_symbol, "Exact ticker match", "high"),
+                (security.normalized_name, "Exact company name match", "high"),
+            ]
+            terms.extend(
+                (alias.normalized_alias, f"{alias.alias_type.replace('_', ' ').title()} match", alias.confidence)
+                for alias in aliases_by_security.get(security.id, [])
+            )
+            score, reason, confidence = self._score_security_terms(normalized_query, terms)
+            if score > 0:
+                scored.append((score, security, reason, confidence))
+        scored.sort(key=lambda item: (-item[0], item[1].symbol))
+        return [(security, reason, confidence) for _, security, reason, confidence in scored[:limit]]
+
+    @staticmethod
+    def _score_security_terms(
+        normalized_query: str,
+        terms: list[tuple[str, str, str]],
+    ) -> tuple[int, str, str]:
+        for term, reason, confidence in terms:
+            if normalized_query == term:
+                return 100 if "ticker" in reason.lower() else 92, reason, confidence
+        for term, reason, confidence in terms:
+            if normalized_query in term or term in normalized_query:
+                return 74, reason if "match" in reason.lower() else "Partial text match", confidence or "medium"
+        best = max((SequenceMatcher(None, normalized_query, term).ratio(), reason) for term, reason, _ in terms)
+        if len(normalized_query) >= 4 and best[0] >= 0.82:
+            return int(best[0] * 60), "Fuzzy text match", "medium"
+        return 0, "", "low"
+
+    def create_security_master_sync_run(
+        self,
+        *,
+        source: str,
+        status: str,
+        started_at: datetime,
+        finished_at: datetime | None,
+        inserted_count: int = 0,
+        updated_count: int = 0,
+        deactivated_count: int = 0,
+        error: str | None = None,
+        raw_metadata: dict[str, Any] | None = None,
+    ) -> SecurityMasterSyncRun:
+        run = SecurityMasterSyncRun(
+            id=str(uuid4()),
+            source=source,
+            started_at=started_at,
+            finished_at=finished_at,
+            status=status,
+            inserted_count=inserted_count,
+            updated_count=updated_count,
+            deactivated_count=deactivated_count,
+            error=error,
+            raw_metadata=raw_metadata or {},
+        )
+        self.security_sync_runs.append(run)
+        return run
+
+    def latest_security_master_sync_run(self) -> SecurityMasterSyncRun | None:
+        if not self.security_sync_runs:
+            return None
+        return sorted(
+            self.security_sync_runs,
+            key=lambda run: run.finished_at or run.started_at,
+            reverse=True,
+        )[0]
